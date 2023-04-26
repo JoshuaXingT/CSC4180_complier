@@ -1,0 +1,12 @@
+DO start L1:
+WHILE start L2:
+  sw $t8, 0($sp)
+  addi $t8, $zero, 0
+  beq $zero, $t8, L3
+  b L2
+L3:
+DO start L4:
+  lw $t8, 0($sp)
+  bne $zero, $t8, L4
+  lw $t8, 0($sp)
+  bne $zero, $t8, L1

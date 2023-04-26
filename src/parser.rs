@@ -7,8 +7,6 @@ use crate::TerminalSymbol;
 use crate::Token;
 use crate::TokenType;
 use crate::TERMINAL_TABLE;
-use std::borrow::BorrowMut;
-use std::clone;
 use std::collections::BTreeSet;
 use std::collections::{HashMap, HashSet};
 
@@ -23,6 +21,11 @@ pub static mut FLAG_STACK: Vec<String> = Vec::new();
 
 // flag pointer: ref to current unused flag
 pub static mut FLAG_PTR: i32 = 1;
+pub static mut IF_FLAG: i32 = 0;
+pub static mut WHILE_FLAG: i32 = 0;
+pub static mut DO_FLAG: Vec<i32> = Vec::new();
+pub static mut CANCEL_WHILE_FLAG: i32 = 0;
+pub static mut INSIDE_DO_TEMP_FLAG: Vec<i32> = Vec::new();
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Production {
@@ -258,7 +261,7 @@ pub struct Parser {
     pub lr1_states: BTreeSet<LR1State>,
     pub action_table: Vec<HashMap<Symbol, Action>>,
     pub goto_table: Vec<HashMap<Symbol, usize>>,
-    pub token_table: Vec<Token>,
+    pub token_table: Vec<Token>, //store all ID and
 }
 
 impl Parser {
@@ -382,6 +385,13 @@ impl Parser {
             let token = tokens[ptr];
             let index = TERMINAL_TABLE.iter().position(|&x| x == token).unwrap();
             let mut symbol_token = Symbol::Terminal(TerminalSymbol::get(index));
+            if (ptr >= 1) {
+                let pre_token = tokens[ptr - 1];
+                let pre_index = TERMINAL_TABLE.iter().position(|&x| x == pre_token).unwrap();
+                let pre_symbol_token = Symbol::Terminal(TerminalSymbol::get(pre_index));
+                Self::handle_condition(pre_symbol_token);
+            }
+
             // println!("{}: {:?}", state, symbol_token);
             let mut action = self.action_table[*state].get(&symbol_token);
             if action.is_none() {
@@ -396,6 +406,8 @@ impl Parser {
             if let Action::Shift(state_index) = action {
                 // print!("state: {}\tnext type: {}\t\t", state, token);
                 // symbol_stack.push(symbol_token);
+                // handle if/else/while condition
+
                 if symbol_token == Symbol::Terminal(TerminalSymbol::INT_NUM) {
                     symbol_stack.push(Token {
                         symbol: symbol_token,
@@ -443,6 +455,42 @@ impl Parser {
                     temp_reg_index: 0,
                 };
                 self.handle(production.line, &mut target_token, &mut rhs_token);
+
+                // handle if else
+                if production.line == 30 {
+                    if tokens[ptr] == Symbol::Terminal(TerminalSymbol::ELSE).to_string() {
+                        unsafe {
+                            // pop here
+                            let s1 = FLAG_STACK.pop();
+                            if s1.is_none() {
+                                panic!("condition haven't push flag but require one");
+                            }
+
+                            let mut s2 = "L".to_string();
+                            let n2 = FLAG_PTR.to_string();
+                            s2 += &n2;
+                            FLAG_PTR += 1;
+
+                            println!("  b {}", s2);
+                            println!("{}:", s1.unwrap());
+
+                            FLAG_STACK.push(s2);
+                            FLAG_STACK.push("out".to_string());
+                        }
+                    } else {
+                        println!("not else but: {}", tokens[ptr + 1]);
+                        unsafe {
+                            // pop here
+                            println!("not else~~~");
+                            let s1 = FLAG_STACK.pop();
+                            if s1.is_none() {
+                                panic!("condition haven't push flag but require one");
+                            }
+                            println!("{}:", s1.unwrap());
+                        }
+                    }
+                }
+
                 symbol_stack.push(target_token);
                 let state_temp = state_stack.last().unwrap();
                 state_stack.push(*self.goto_table[*state_temp].get(&production.lhs).unwrap());
@@ -463,6 +511,64 @@ impl Parser {
         }
         Some(())
     }
+
+    fn handle_condition(token: Symbol) {
+        match token {
+            Symbol::Terminal(TerminalSymbol::IF) => unsafe {
+                IF_FLAG = 1;
+                if !DO_FLAG.is_empty() {
+                    INSIDE_DO_TEMP_FLAG.push(1);
+                }
+            },
+            Symbol::Terminal(TerminalSymbol::WHILE) => unsafe {
+                if WHILE_FLAG == 1 {
+                    return;
+                }
+
+                if CANCEL_WHILE_FLAG == 1 {
+                    CANCEL_WHILE_FLAG = 0;
+                    return;
+                }
+
+                // println!("handle once");
+                WHILE_FLAG = 1;
+                if !DO_FLAG.is_empty() {
+                    INSIDE_DO_TEMP_FLAG.push(1);
+                }
+
+                unsafe {
+                    let mut s1 = "L".to_string();
+                    let n1 = FLAG_PTR.to_string();
+                    s1 += &n1;
+                    FLAG_PTR += 1;
+
+                    let mut s2 = "L".to_string();
+                    let n2 = FLAG_PTR.to_string();
+                    s2 += &n2;
+                    FLAG_PTR += 1;
+
+                    println!("WHILE start {}:", &s1);
+                    FLAG_STACK.push(s2.clone());
+                    FLAG_STACK.push(s1.clone());
+                    FLAG_STACK.push(s2.clone());
+                }
+            },
+            Symbol::Terminal(TerminalSymbol::DO) => unsafe {
+                DO_FLAG.push(1);
+                unsafe {
+                    let mut s1 = "L".to_string();
+                    let n1 = FLAG_PTR.to_string();
+                    s1 += &n1;
+                    FLAG_PTR += 1;
+
+                    println!("DO start {}:", &s1);
+                    FLAG_STACK.push(s1.clone());
+                }
+            },
+            _ => return,
+        }
+    }
+
     fn handle(&mut self, line: usize, lhs_pos: &mut Token, rhs_pos: &mut Vec<Token>) {
         match line {
             // 9. declaration -> ID ASSIGN exp
@@ -479,28 +585,28 @@ impl Parser {
             27 => self.assign(),
 
             // 29. if_statement -> if_stmt ELSE code_block
-            // 29 => self.else_condition(),
+            29 => self.else_condition(),
 
             // 30. if_stmt -> IF LPAR exp RPAR code_block
             30 => self.if_condition(&rhs_pos[2]),
             // 31. while_statement -> WHILE LPAR exp RPAR code_block
-            31 => self.while_condition(&rhs_pos[2]),
+            31 => self.while_condition(),
             // 32. do_while_statement -> DO code_block WHILE LPAR exp RPAR
             32 => self.do_while_condition(&rhs_pos[1]),
             // 34. read_statement -> READ LPAR ID RPAR
             34 => self.read_func(&mut rhs_pos[1]),
             // 35. write_statement -> WRITE LPAR exp RPAR
             35 => self.write_func(&rhs_pos[1]),
+            //determine if flag
+            36 => self.pass_exp1_to_exp(&rhs_pos[1], lhs_pos),
 
             // generate_1: exp_i -> exp_j exp_ii
-            36 | 39 | 42 | 45 | 48 | 52 | 58 | 62 | 66 => {
-                self.pass_exp_exp_to_exp(&rhs_pos[1], lhs_pos)
-            }
+            39 | 42 | 45 | 48 | 52 | 58 | 62 | 66 => self.pass_exp_exp_to_exp(&rhs_pos[1], lhs_pos),
 
             // generate_2: exp_ii -> OP exp_j exp_ii
             37 | 40 | 43 | 46 | 49 | 50 | 53 | 54 | 55 | 56 | 59 | 60 | 63 | 64 | 67 | 68 => {
                 // println!("{}", rhs_pos.len());
-                self.pass_op_exp_exp_to_exp(&rhs_pos[2])
+                self.pass_op_exp_exp_to_exp(&rhs_pos[2], lhs_pos)
             }
 
             // generate_3: exp_ii -> EMPTY
@@ -546,44 +652,44 @@ impl Parser {
             unsafe {
                 id.mem_addr = MEMORY_PTR;
                 self.token_table.push(id.clone());
-                println!("sw $t8, {}($sp)", -4 * MEMORY_PTR);
+                println!("  sw $t8, {}($sp)", -4 * MEMORY_PTR);
                 MEMORY_PTR += 1;
             }
         } else {
             println!(
-                "sw $t8, {}($sp)",
+                "   sw $t8, {}($sp)",
                 -4 * self.token_table[index.unwrap()].mem_addr
             );
         }
         // print \n
-        println!("addi $v0, $zero, 11");
-        println!("addi $a0, $zero, 10");
-        println!("syscall");
+        println!("  addi $v0, $zero, 11");
+        println!("  addi $a0, $zero, 10");
+        println!("  syscall");
     }
 
     //35
     fn write_func(&mut self, exp: &Token) {
-        println!("addi $v0, $zero, 1");
+        println!("  addi $v0, $zero, 1");
         if exp.token_type == TokenType::IntExpr {
-            println!("addi $a0, $zero, {}", exp.int_val);
+            println!("  addi $a0, $zero, {}", exp.int_val);
         } else if exp.token_type == TokenType::IDExpr {
-            println!("lw $t8, {}($sp)", -4 * exp.mem_addr);
-            println!("add $a0, $t8, $zero");
+            println!("  lw $t8, {}($sp)", -4 * exp.mem_addr);
+            println!("  add $a0, $t8, $zero");
         } else {
             println!(
-                "add $a0, {}, $zero",
+                "   add $a0, {}, $zero",
                 TEMPER_REGISTER_TABLE[exp.temp_reg_index]
             );
             unsafe {
                 TEMPER_REGISTER_CHECK[exp.temp_reg_index] = false;
             }
         }
-        println!("syscall");
+        println!("  syscall");
 
         // print \n
-        println!("addi $v0, $zero, 11");
-        println!("addi $a0, $zero, 10");
-        println!("syscall");
+        println!("  addi $v0, $zero, 11");
+        println!("  addi $a0, $zero, 10");
+        println!("  syscall");
     }
 
     fn assign(&mut self) {}
@@ -608,50 +714,34 @@ impl Parser {
     //          $L3:
 
     //In this function we only need to implement logic 1 above
-    //TO BE SOLVED: how to output
-    fn if_condition(&mut self, condition: &Token) {
-        match condition.token_type {
-            TokenType::IDExpr => print!(""),
+    //TO BE SOLVED: wrong logic
+    //30. if_stmt -> IF LPAR exp RPAR code_block
+    fn if_condition(&mut self, condition: &Token) {}
 
-            // TODO
-            TokenType::IntExpr => print!(""),
-
-            //TODO:
-            TokenType::CombinedExpr => print!(""),
-        }
-
+    // TODO sequence???
+    fn else_condition(&mut self) {
         unsafe {
-            // push L3 (jump flag)
-            let mut s1 = "L".to_string();
-            let n1 = FLAG_PTR.to_string();
-            s1 += &n1;
-            FLAG_STACK.push(s1.clone());
-            FLAG_PTR += 1;
-
-            // push L2 (part flag)
-            let mut s2 = "L".to_string();
-            let n2 = FLAG_PTR.to_string();
-            s2 += &n2;
-            FLAG_STACK.push(s2.clone());
-            FLAG_PTR += 1;
-
-            //push L3 again for reminder
-            FLAG_STACK.push(s1.clone());
-
-            //push "b" reminder flag
-            FLAG_STACK.push("b".to_string());
+            let peek = &FLAG_STACK[FLAG_STACK.len() - 1];
+            // println!("print value: {}", peek);
+            if peek == "out" {
+                // println!("else correct");
+                FLAG_STACK.pop();
+                let else_label = FLAG_STACK.pop();
+                if else_label.is_none() {
+                    panic!("else label stack overflow");
+                } else {
+                    println!("{}:", else_label.unwrap());
+                }
+            }
         }
     }
-
-    // seems no use
-    // fn else_condition(&mut self) {}
 
     //----------------while logic-----------------:
     // 1: condition label
     //      $L1
     // 2: condition code block:
     //      {...
-    //       bne L2}  // some judgement to jump out of while logic
+    //       b L2}  // some judgement to jump out of while logic
     // 3: code block:
     //      {...
     //       b L1}  // back to judgement
@@ -660,51 +750,21 @@ impl Parser {
     //In this funciton we need to implement logic 1 & 2
     //this function will also push a L2(jump out flag) into the flag stack
     //when the logic 3(code block end), the corresponding flag should also be outputed
-    fn while_condition(&mut self, condition: &Token) {
+    fn while_condition(&mut self) {
         //logic 1 L1 flag
         unsafe {
-            let l1: String = FLAG_PTR.to_string();
-            println!("$L{}:", l1);
-            FLAG_PTR += 1;
-        }
+            let s1 = FLAG_STACK.pop();
+            if s1.is_none() {
+                panic!("while back to L1 missing label but require one");
+            }
 
-        //logic 2  condition block
-        // TODO
-        // *: no need to add flag after output L2 here: for below usage
-        match condition.token_type {
-            TokenType::IDExpr => print!(""),
+            let s2 = FLAG_STACK.pop();
+            if s2.is_none() {
+                panic!("while leave missing label but require one");
+            }
 
-            // TODO
-            TokenType::IntExpr => print!(""),
-
-            //TODO:
-            TokenType::CombinedExpr => print!(""),
-        }
-
-        // TODO: bne beq b?
-        // unsafe {
-        //     let l2: String = FLAG_PTR.to_string();
-        //     println!("b $L{}", l2);
-        // }
-
-        unsafe {
-            //push L2 jump out flag
-            let mut s2 = "L".to_string();
-            let n2 = FLAG_PTR.to_string();
-            s2 += &n2;
-            FLAG_STACK.push(s2.clone());
-
-            // push condition label L1
-            FLAG_PTR -= 1;
-            let mut s1 = "L".to_string();
-            let n1 = FLAG_PTR.to_string();
-            s1 += &n1;
-            FLAG_STACK.push(s1.clone());
-            //recover pointer to next index
-            FLAG_PTR += 2;
-
-            //push "b" reminder flag
-            FLAG_STACK.push("b".to_string());
+            println!("  b {}", s1.unwrap());
+            println!("{}:", s2.unwrap());
         }
     }
 
@@ -720,25 +780,36 @@ impl Parser {
     // 32. do_while_statement -> DO code_block WHILE LPAR exp RPAR
     // this function need to implement logic 3 above
     fn do_while_condition(&mut self, condition: &Token) {
-        // jump back to do while flag
-        // TODO
-        match condition.token_type {
-            TokenType::IDExpr => print!(""),
+        unsafe {
+            let s1 = FLAG_STACK.pop();
+            if s1.is_none() {
+                panic!("do while missing leave label but require one");
+            }
 
-            TokenType::IntExpr => print!(""),
+            match condition.token_type {
+                TokenType::IntExpr => {
+                    println!("  addi $t8, $zero, {}", condition.int_val);
+                    println!("  bne $zero, $t8, {}", s1.unwrap());
 
-            TokenType::CombinedExpr => print!(""),
+                    // FLAG_STACK.push(s1);
+                }
+                TokenType::IDExpr => {
+                    let index = self.look_up_id(&condition.id);
+                    println!(
+                        "  lw $t8, {}($sp)",
+                        -4 * self.token_table[index.unwrap()].mem_addr
+                    );
+                    println!("  bne $zero, $t8, {}", s1.unwrap());
+                }
+                TokenType::CombinedExpr => {
+                    println!(
+                        "   bne $zero, {}, {}",
+                        TEMPER_REGISTER_TABLE[condition.temp_reg_index],
+                        s1.unwrap()
+                    );
+                }
+            }
         }
-
-        // TODO: bne beq b?
-        // unsafe {
-        //     let flag = FLAG_STACK.pop();
-        //     if (flag.is_none()) {
-        //         panic!("flag stack overflow at do while end");
-        //     } else {
-        //         println!("bne/beq/b {}", flag.unwrap());
-        //     }
-        // }
     }
 
     // TO BE CHECKED
@@ -746,38 +817,112 @@ impl Parser {
     // used to output certain flag label used in the if/while/else/dowhile statement
     fn end_of_code_block(&mut self) {
         unsafe {
-            let flag = FLAG_STACK.pop();
-            if flag.is_none() {
-                return;
-            }
-            let peek = flag.unwrap();
-
-            // if stack contains "b" symbol, it means we have a if/else/while condition
-            // thus, we need to first print "b jump_flag", (logic 2 of if/else)
-            // then pop the else part flag (logic 3)
-            if peek == "b" {
-                let flag2 = FLAG_STACK.pop();
-                if flag2.is_none() {
-                    panic!("flag stack overlow at brench to output flag");
+            let DO = DO_FLAG.pop();
+            if !DO.is_none() {
+                if INSIDE_DO_TEMP_FLAG.is_empty() {
+                    CANCEL_WHILE_FLAG = 1;
                 } else {
-                    println!("b ${}", flag2.unwrap());
+                    INSIDE_DO_TEMP_FLAG.pop();
+                    DO_FLAG.push(1);
+                }
+            }
+        }
+    }
+
+    // handle conditions, push flag stack
+    fn pass_exp1_to_exp(&mut self, rhs: &Token, target: &mut Token) {
+        let temp: Symbol = target.symbol;
+        *target = rhs.clone();
+        target.symbol = temp;
+
+        unsafe {
+            if IF_FLAG == 1 {
+                // should output condition and push flag stack
+                // output condition
+                let mut s1 = "L".to_string();
+                let n1 = FLAG_PTR.to_string();
+                s1 += &n1;
+                FLAG_PTR += 1;
+
+                match target.token_type {
+                    TokenType::IntExpr => {
+                        println!("  addi $t8, $zero, {}", target.int_val);
+                        println!("  beq $zero, $t8, {}", &s1);
+                        FLAG_STACK.push(s1.clone());
+                        // FLAG_STACK.push(s1);
+                    }
+                    TokenType::IDExpr => {
+                        let index = self.look_up_id(&target.id);
+                        println!(
+                            "  lw $t8, {}($sp)",
+                            -4 * self.token_table[index.unwrap()].mem_addr
+                        );
+                        println!("  beq $zero, $t8, {}", &s1);
+                        FLAG_STACK.push(s1.clone());
+                    }
+                    TokenType::CombinedExpr => {
+                        println!(
+                            "   beq $zero, {}, {}",
+                            TEMPER_REGISTER_TABLE[target.temp_reg_index], &s1
+                        );
+                        FLAG_STACK.push(s1.clone());
+                    }
                 }
 
-                self.end_of_code_block();
-            } else {
-                println!("${}:", peek);
+                IF_FLAG = 0;
+            } else if WHILE_FLAG == 1 {
+                let s2 = FLAG_STACK.pop();
+                if s2.is_none() {
+                    panic!("while condition missing flag but require one");
+                }
+
+                match target.token_type {
+                    TokenType::IDExpr => {
+                        println!("  addi $t8, $zero, {}", target.int_val);
+                        println!("  beq $zero, $t8, {}", s2.unwrap());
+                    }
+
+                    TokenType::IntExpr => {
+                        let index = self.look_up_id(&target.id);
+                        println!(
+                            "   lw $t8, {}($sp)",
+                            -4 * self.token_table[index.unwrap()].mem_addr
+                        );
+                        println!("  beq $zero, $t8, {}", s2.unwrap());
+                    }
+
+                    TokenType::CombinedExpr => {
+                        println!(
+                            "   beq $zero, {}, {}",
+                            TEMPER_REGISTER_TABLE[target.temp_reg_index],
+                            s2.unwrap()
+                        );
+                    }
+                }
+
+                // jump to L2
+                WHILE_FLAG = 0;
             }
         }
     }
 
     // generate_1: exp_i -> exp_j exp_ii
     fn pass_exp_exp_to_exp(&mut self, rhs: &Token, target: &mut Token) {
+        let temp: Symbol = target.symbol;
         *target = rhs.clone();
+        target.symbol = temp;
     }
 
     //TODO
     // a op b
-    fn pass_op_exp_exp_to_exp(&mut self, token: &Token) {}
+    fn pass_op_exp_exp_to_exp(&mut self, operation: &Token, target: &mut Token) {
+        match operation.symbol {
+            Symbol::Terminal(TerminalSymbol::EQ) => target.int_val = 0,
+            Symbol::Terminal(TerminalSymbol::LTEQ) => target.int_val = 0,
+            Symbol::Terminal(TerminalSymbol::GTEQ) => target.int_val = 0,
+            _ => return,
+        }
+    }
 
     fn pass_minus_exp_to_exp(&mut self, rhs: &Token, target: &mut Token) {
         // target.int_val = (rhs.int_val.clone() as i32) as usize;
@@ -821,7 +966,7 @@ impl Parser {
             unsafe {
                 // id.mem_addr = MEMORY_PTR;
                 self.token_table.push(id.clone());
-                println!("sw $t8, {}($sp)", -4 * MEMORY_PTR);
+                println!("  sw $t8, {}($sp)", -4 * MEMORY_PTR);
                 MEMORY_PTR += 1;
             }
         }

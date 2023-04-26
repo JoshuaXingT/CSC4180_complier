@@ -1,11 +1,12 @@
 int a = 3;
-if (a > 3) {
-    if (a > 2) {
+do{
+    while(a == 3){
         a = a + 1;
     }
-    a = a + 1;
-} else {
-    a = a - 1;
+    do{
+        a = a+1;
+    }
+    while(a == 3);
 }
-printf(a);
+while(a == 3);
 return;
