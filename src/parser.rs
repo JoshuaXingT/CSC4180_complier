@@ -309,6 +309,7 @@ impl Parser {
             }
         }
     }
+
     pub fn construct_parsing_table(&mut self, productions: &Vec<Production>) {
         let state_num = self.lr1_states.len();
         // println!("{}", state_num);
@@ -638,7 +639,17 @@ impl Parser {
         None
     }
 
-    fn look_up_unused_temp_reg() {}
+    fn look_up_unused_temp_reg(&self) -> Option<usize> {
+        unsafe {
+            for i in 0..TEMPER_REGISTER_CHECK.len() {
+                if TEMPER_REGISTER_CHECK[i] {
+                    return Some(i);
+                }
+            }
+            panic!("temp regitser overflow");
+            // Some(0)
+        }
+    }
 
     // 34
     fn read_func(&mut self, id: &mut Token) {
@@ -817,8 +828,8 @@ impl Parser {
     // used to output certain flag label used in the if/while/else/dowhile statement
     fn end_of_code_block(&mut self) {
         unsafe {
-            let DO = DO_FLAG.pop();
-            if !DO.is_none() {
+            let do_item = DO_FLAG.pop();
+            if !do_item.is_none() {
                 if INSIDE_DO_TEMP_FLAG.is_empty() {
                     CANCEL_WHILE_FLAG = 1;
                 } else {
@@ -916,26 +927,76 @@ impl Parser {
     //TODO
     // a op b
     fn pass_op_exp_exp_to_exp(&mut self, operation: &Token, target: &mut Token) {
+        // the targe token type should be "CombinedExpr" with it's temp_register index assigned with content
+        // for example:
+        // suppose a is ID , b is combinedExpr, 1 is int, + is operation
+        // target = x + x should conisder x situation:
+        // 1 + 1
+        // 1 + a
+        // 1 + b
+        // a + 1
+        // b + 1
+        // a + b
+        // b + a
+        // a + a
+        // b + b
         match operation.symbol {
-            Symbol::Terminal(TerminalSymbol::EQ) => target.int_val = 0,
-            Symbol::Terminal(TerminalSymbol::LTEQ) => target.int_val = 0,
-            Symbol::Terminal(TerminalSymbol::GTEQ) => target.int_val = 0,
+            Symbol::Terminal(TerminalSymbol::OROR) => {
+                //situations:
+                // int||int
+                // temp_register.int_val = int || int
+                let index = self.look_up_unused_temp_reg();
+
+                // a||int or b||int
+                // temp_register.int_val = a/b.int_val || int
+
+                // a||a or a||b or b||a or b||b
+                // temp_register.intval = a/b.int_val || a/b.int_val
+            }
+            Symbol::Terminal(TerminalSymbol::ANDAND) => {}
+            Symbol::Terminal(TerminalSymbol::OR_OP) => {}
+            Symbol::Terminal(TerminalSymbol::AND_OP) => {}
+            Symbol::Terminal(TerminalSymbol::EQ) => {}
+            Symbol::Terminal(TerminalSymbol::NOTEQ) => {}
+            Symbol::Terminal(TerminalSymbol::LT) => {}
+            Symbol::Terminal(TerminalSymbol::GT) => {}
+            Symbol::Terminal(TerminalSymbol::LTEQ) => {}
+            Symbol::Terminal(TerminalSymbol::GTEQ) => {}
+            Symbol::Terminal(TerminalSymbol::SHL_OP) => {}
+            Symbol::Terminal(TerminalSymbol::SHR_OP) => {}
+            Symbol::Terminal(TerminalSymbol::PLUS) => {}
+            Symbol::Terminal(TerminalSymbol::MINUS) => {}
+            Symbol::Terminal(TerminalSymbol::MUL_OP) => {}
+            Symbol::Terminal(TerminalSymbol::DIV_OP) => {}
             _ => return,
         }
     }
 
     fn pass_minus_exp_to_exp(&mut self, rhs: &Token, target: &mut Token) {
-        // target.int_val = (rhs.int_val.clone() as i32) as usize;
         match rhs.token_type {
             //TODO
             // minus ID -> 提取出ID中的值并返回 -usize
-            TokenType::IDExpr => return,
+            TokenType::IDExpr => {
+                target.int_val = -rhs.int_val; // why usize instead of i32?
+
+                println!("  lw $t8,{}($fp)", -4 * rhs.mem_addr);
+                println!("  subu $t8,$0,$t8");
+                println!("  sw $t8,{}($fp)", -4 * rhs.mem_addr);
+            }
 
             // minus int -> return -usize
+            // 这里是否输出mips代码， 取决于编译器的偏好
+            // 对于一些编译器来说，if(-1)的情况应该在编译器里直接判断，不需要再额外输出mips代码
             TokenType::IntExpr => target.int_val = (rhs.int_val.clone() as i32) as usize,
 
             //TODO:
-            TokenType::CombinedExpr => return,
+            TokenType::CombinedExpr => {
+                target.int_val = -rhs.int_val; // why usize instead of i32?
+
+                println!("  lw $t8,{}", TEMPER_REGISTER_TABLE[rhs.temp_reg_index]);
+                println!("  subu $t8,$0,$t8");
+                println!("  sw $t8,{}", TEMPER_REGISTER_TABLE[rhs.temp_reg_index]);
+            }
         }
     }
 
@@ -944,13 +1005,34 @@ impl Parser {
         match rhs.token_type {
             //TODO
             // minus ID -> 提取出ID中的值并返回 !usize
-            TokenType::IDExpr => return,
+            TokenType::IDExpr => {
+                target.int_val = !rhs.int_val;
+
+                println!("  lw $t8,{}($fp)", -4 * rhs.mem_addr);
+                println!("  sltu $t8,$t8,1");
+                println!("  andi $t8,$t8,0x00ff");
+                println!("  sw $t8,{}($fp)", -4 * rhs.mem_addr);
+            }
 
             // minus int -> return -usize
-            TokenType::IntExpr => target.int_val = !rhs.int_val.clone(),
+            TokenType::IntExpr => target.int_val = !rhs.int_val,
 
             //TODO:
-            TokenType::CombinedExpr => return,
+            TokenType::CombinedExpr => {
+                // -combine should change the value in temp register
+                target.int_val = !rhs.int_val;
+
+                println!(
+                    "  lw $t8,{}($fp)",
+                    TEMPER_REGISTER_TABLE[rhs.temp_reg_index]
+                );
+                println!("  sltu $t8,$t8,1");
+                println!("  andi $t8,$t8,0x00ff");
+                println!(
+                    "  sw $t8,{}($fp)",
+                    TEMPER_REGISTER_TABLE[rhs.temp_reg_index]
+                );
+            }
         }
     }
 
