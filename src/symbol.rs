@@ -215,16 +215,19 @@ pub enum Action {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Token {
     pub symbol: Symbol,
-    pub int_val: usize,
+    pub int_val: i32,
     pub id: String,
     pub len: usize,    // array size
     pub mem_addr: i32, // memory_address
     pub token_type: TokenType,
     pub temp_reg_index: usize,
+    pub op: TerminalSymbol,
 }
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TokenType {
     IntExpr,
     IDExpr,
     CombinedExpr,
+    EMPTY,
 }
