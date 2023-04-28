@@ -25,8 +25,24 @@ pub static mut FLAG_STACK: Vec<String> = Vec::new();
 pub static mut FLAG_PTR: i32 = 1;
 pub static mut IF_FLAG: i32 = 0;
 pub static mut WHILE_FLAG: i32 = 0;
+
+// do flag represent that the program have encountered do_while logic
+// each time the scanner scan a "DO", a "1" will push into DO flag stack
+// at the end of code block, if the "INSIDE_DO_TEMP_FLAG" stack is empty
+// the do flag will pop one "1" out from DO_FLAG stack and change the "CANCEL_WHILE_FLAG" to 1
+// since we have do while logic like: DO {code block} WHILE {condition}
+// if we scan a WHILE with CANCEL_WHILE_FLAG being 1, the while logic output will not be activated
+// than after that WHILE, CANCEL_WHILE_FLAG will be changed back to 0;
 pub static mut DO_FLAG: Vec<i32> = Vec::new();
 pub static mut CANCEL_WHILE_FLAG: i32 = 0;
+
+// The INSIDE_DO_TEMP_FLAG stack used to dual with the inside logic of DO codeblock
+// since inside the do code block we still want to handle while/do while/if else logic
+// thus, we don't want the CANCEL_WHILE_FLAG to influence the output of while/do while/if logic inside DO {code block}
+// so if the DO_FLAG contains something (representing inside a do code block)
+// each time we scan a WHILE / IF, a "1" will be pushed into INSIDE_DO_TEMP_FLAG stack
+// and each time a code block end, a "1" will be poped from INSIDE_DO_TEMP_FLAG stack
+// only when the INSIDE_DO_TEMP_FLAG is empty, the CANCEL_WHILE_FLAG can work
 pub static mut INSIDE_DO_TEMP_FLAG: Vec<i32> = Vec::new();
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -487,7 +503,7 @@ impl Parser {
                         // println!("not else but: {}", tokens[ptr + 1]);
                         unsafe {
                             // pop here
-                            println!("not else~~~");
+                            // println!("not else~~~");
                             let s1 = FLAG_STACK.pop();
                             if s1.is_none() {
                                 panic!("condition haven't push flag but require one");
@@ -581,13 +597,13 @@ impl Parser {
             // 9. declaration -> ID ASSIGN exp
             9 => self.define_exp_assign_id(rhs_pos[0].clone(), &mut rhs_pos[2]),
             // 10. declaration -> ID LSQUARE exp RSQUARE
-            10 => self.pass_id_ls_exp_rs_to_exp(),
+            10 => self.define_id_ls_exp_rs(rhs_pos[1].clone(), &mut rhs_pos[3]),
             // 11. declaration -> ID
             11 => self.define_id(&mut rhs_pos[0]),
             12 | 13 => self.end_of_code_block(),
 
             // 26. assign_statement -> ID LSQUARE exp RSQUARE ASSIGN exp
-            26 => self.assign_with_index(),
+            26 => self.assign_with_index(&rhs_pos[5], &rhs_pos[3], &rhs_pos[0]),
             // 27. assign_statement -> ID ASSIGN exp
             27 => self.assign(&rhs_pos[0], &rhs_pos[2]),
 
@@ -595,7 +611,7 @@ impl Parser {
             29 => self.else_condition(),
 
             // 30. if_stmt -> IF LPAR exp RPAR code_block
-            30 => self.if_condition(&rhs_pos[2]),
+            // 30 => self.if_condition(&rhs_pos[2]),
             // 31. while_statement -> WHILE LPAR exp RPAR code_block
             31 => self.while_condition(),
             // 32. do_while_statement -> DO code_block WHILE LPAR exp RPAR
@@ -615,7 +631,12 @@ impl Parser {
             // generate_2: exp_ii -> OP exp_j exp_ii
             37 | 40 | 43 | 46 | 49 | 50 | 53 | 54 | 55 | 56 | 59 | 60 | 63 | 64 | 67 | 68 => {
                 // println!("{}", rhs_pos.len());
-                self.pass_op_exp_exp_to_exp(&rhs_pos[2], &rhs_pos[1], lhs_pos)
+                self.pass_op_exp_exp_to_exp(
+                    rhs_pos[2].clone(),
+                    rhs_pos[1].clone(),
+                    &mut rhs_pos[0],
+                    lhs_pos,
+                )
             }
 
             // generate_3: exp_ii -> EMPTY
@@ -627,7 +648,7 @@ impl Parser {
             // 72. exp_9 -> exp_10
             72 => self.pass_exp_to_exp(&rhs_pos[0], lhs_pos),
             // 73. exp_10 -> ID LSQUARE exp RSQUARE
-            73 => self.pass_id_ls_exp_rs_to_exp(),
+            73 => self.pass_id_ls_exp_rs_to_exp(&rhs_pos[3], &rhs_pos[1], lhs_pos),
             // 74. exp_10 -> ID
             74 => self.pass_id_to_exp(&rhs_pos[0], lhs_pos),
             // 75. exp_10 -> INT_NUM
@@ -720,10 +741,11 @@ impl Parser {
 
     fn define_id(&mut self, id: &mut Token) {
         let index = self.look_up_id(&id.id);
-        if index.is_some() {
+        if !index.is_none() {
             panic!("variable redifined!!!");
         }
         unsafe {
+            // id.token_type = TokenType::IDExpr;
             id.mem_addr = MEMORY_PTR;
             self.token_table.push(id.clone());
             MEMORY_PTR += 1;
@@ -732,7 +754,7 @@ impl Parser {
 
     fn define_exp_assign_id(&mut self, exp: Token, id: &mut Token) {
         let index = self.look_up_id(&id.id);
-        if index.is_some() {
+        if !index.is_none() {
             panic!("variable redifined!!!");
         }
         unsafe {
@@ -793,10 +815,179 @@ impl Parser {
     }
 
     // id[index]
-    fn pass_id_ls_exp_rs_to_exp(&mut self) {}
+    fn define_id_ls_exp_rs(&mut self, index: Token, id: &mut Token) {
+        let id_index = self.look_up_id(&id.id);
+        if !id_index.is_none() {
+            panic!("variable redifined!!!");
+        }
+
+        // according to the index value, return the data in the mem($sp) to target
+        if index.token_type == TokenType::IntExpr {
+            if index.int_val < 0 {
+                panic!("array length must be positive integer!!!");
+            } else if index.int_val > 0 {
+                unsafe {
+                    id.mem_addr = MEMORY_PTR;
+                    id.len = index.int_val as usize;
+                    self.token_table.push(id.clone());
+                    MEMORY_PTR += index.int_val;
+                }
+                // println!("id: {} {:?}", id.len, self.token_table);
+            }
+            // mem = -4(mem_addr + index.value)
+        } else {
+            panic!("unexpected index input");
+        }
+        // else if index.token_type == TokenType::CombinedExpr {
+        //     unsafe {
+        //         TEMPER_REGISTER_CHECK[index.temp_reg_index] = false;
+        //         id.mem_addr = MEMORY_PTR;
+        //         self.token_table.push(id.clone());
+        //         MEMORY_PTR += 2;
+        //     }
+        //     println!(
+        //         "    addiu $s7, {}, -1",
+        //         TEMPER_REGISTER_TABLE[index.temp_reg_index]
+        //     );
+        //     println!("    sw $s7, {}($sp)", -4 * id.mem_addr);
+        //     println!(
+        //         "    move $s7, {}",
+        //         TEMPER_REGISTER_TABLE[index.temp_reg_index]
+        //     );
+        //     println!("    move $s6, $s7");
+        //     println!("    move $s5, $zero");
+        //     println!("    srl $s7, $s6, 27");
+        //     println!("    sll $s4, $s5, 5");
+        //     println!("    or $s4, $s7, $s4");
+        //     println!("    sll $s3, $s6, 5");
+        //     println!(
+        //         "    move $4, {}",
+        //         TEMPER_REGISTER_TABLE[index.temp_reg_index]
+        //     );
+        //     println!("    move $s2, $s4");
+        //     println!("    srl $s4, $s2, 27");
+        //     println!("    sll $s1, $zero, 5");
+        //     println!("    or $s1, $s4, $s1");
+        //     println!("    sll $s0, $s2, 5");
+        //     println!(
+        //         "    move $s1, {}",
+        //         TEMPER_REGISTER_TABLE[index.temp_reg_index]
+        //     );
+        //     println!("    sll $s1, $s1, 2");
+        //     println!("    addiu $s1, $s1, 3");
+        //     println!("    addiu $s1, $s1, 7");
+        //     println!("    srl $s1, $s1, 3");
+        //     println!("    sll $s1, $s1, 3");
+        //     println!("    subu $sp, $sp, $s1");
+        //     println!("    move $s1, $sp");
+        //     println!("    addiu $s1, $s1, 3");
+        //     println!("    srl $s1, $s1, 2");
+        //     println!("    sll $s1, $s1, 2");
+        //     println!("    sw $s1, {}($sp)", -4 * (id.mem_addr + 1));
+        // } else {
+        //     unsafe {
+        //         id.mem_addr = MEMORY_PTR;
+        //         self.token_table.push(id.clone());
+        //         MEMORY_PTR += 2;
+        //     }
+        //     println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
+        //     println!("    addiu $s7, $t8, -1");
+        //     println!("    sw $s7, {}($sp)", -4 * id.mem_addr);
+        //     println!("    move $s7, $t8");
+        //     println!("    move $s6, $s7");
+        //     println!("    move $s5, $zero");
+        //     println!("    srl $s7, $s6, 27");
+        //     println!("    sll $s4, $s5, 5");
+        //     println!("    or $s4, $s7, $s4");
+        //     println!("    sll $s3, $s6, 5");
+        //     println!("    move $4, $t8");
+        //     println!("    move $s2, $s4");
+        //     println!("    srl $s4, $s2, 27");
+        //     println!("    sll $s1, $zero, 5");
+        //     println!("    or $s1, $s4, $s1");
+        //     println!("    sll $s0, $s2, 5");
+        //     println!("    move $s1, $t8");
+        //     println!("    sll $s1, $s1, 2");
+        //     println!("    addiu $s1, $s1, 3");
+        //     println!("    addiu $s1, $s1, 7");
+        //     println!("    srl $s1, $s1, 3");
+        //     println!("    sll $s1, $s1, 3");
+        //     println!("    subu $sp, $sp, $s1");
+        //     println!("    move $s1, $sp");
+        //     println!("    addiu $s1, $s1, 3");
+        //     println!("    srl $s1, $s1, 2");
+        //     println!("    sll $s1, $s1, 2");
+        //     println!("    sw $s1, {}($sp)", -4 * (id.mem_addr + 1));
+        // }
+    }
+
+    //73. exp_10 -> ID LSQUARE exp RSQUARE
+    fn pass_id_ls_exp_rs_to_exp(&mut self, id: &Token, index: &Token, target: &mut Token) {
+        target.token_type = TokenType::IDExpr;
+        unsafe {
+            target.mem_addr = MEMORY_PTR;
+            MEMORY_PTR += 1;
+        }
+        if index.token_type == TokenType::IntExpr {
+            let id_index = self.look_up_id(&id.id);
+            if id_index.is_none() {
+                panic!("undefined variable!!!");
+            }
+            let id_index = id_index.unwrap();
+            println!(
+                "    lw $t8, {}($sp)",
+                -4 * (self.token_table[id_index].mem_addr + index.int_val)
+            );
+            println!("    sw $t8, {}($sp)", -4 * target.mem_addr);
+        } else {
+            panic!("unexcepted input when indexing an array");
+        }
+    }
 
     // id[index] = exp
-    fn assign_with_index(&mut self) {}
+    // 26. assign_statement -> ID LSQUARE exp RSQUARE ASSIGN exp
+    fn assign_with_index(&mut self, id: &Token, index: &Token, exp: &Token) {
+        let id_index = self.look_up_id(&id.id);
+        if id_index.is_none() {
+            panic!("undefined variable!!!");
+        }
+        let id_index = id_index.unwrap();
+        // println!("index: {} {}", id_index, self.token_table[id_index].len);
+        if index.token_type != TokenType::IntExpr {
+            panic!("unexpected index input");
+        } else if index.int_val >= (self.token_table[id_index].len as i32) {
+            // println!("id len:{}, index val: {}", id.len, index.int_val);
+            panic!("index out of range");
+        }
+        match exp.token_type {
+            TokenType::IntExpr => {
+                println!("    li $t8, {}", exp.int_val);
+                println!(
+                    "    sw $t8, {}($sp)",
+                    -4 * (index.int_val + self.token_table[id_index].mem_addr)
+                );
+            }
+            TokenType::IDExpr => {
+                println!("    lw $t8, {}($sp)", -4 * exp.mem_addr);
+                println!(
+                    "    sw $t8, {}($sp)",
+                    -4 * (index.int_val + self.token_table[id_index].mem_addr)
+                );
+            }
+            TokenType::CombinedExpr => {
+                unsafe {
+                    TEMPER_REGISTER_CHECK[exp.temp_reg_index];
+                }
+                // println!("    lw $t8, {}", TEMPER_REGISTER_TABLE[exp.temp_reg_index]);
+                println!(
+                    "    sw {}, {}($sp)",
+                    TEMPER_REGISTER_TABLE[exp.temp_reg_index],
+                    -4 * (index.int_val + self.token_table[id_index].mem_addr)
+                );
+            }
+            _ => {}
+        }
+    }
 
     // ------------if else output logic---------------:
     // 1: condition output, for example:
@@ -814,7 +1005,7 @@ impl Parser {
     //In this function we only need to implement logic 1 above
     //TO BE SOLVED: wrong logic
     //30. if_stmt -> IF LPAR exp RPAR code_block
-    fn if_condition(&mut self, condition: &Token) {}
+    // fn if_condition(&mut self, condition: &Token) {}
 
     // TODO sequence???
     fn else_condition(&mut self) {
@@ -2785,10 +2976,23 @@ impl Parser {
 
     //TODO
     // a op b
-    fn pass_op_exp_exp_to_exp(&mut self, operation: &Token, rhs: &Token, target: &mut Token) {
+    fn pass_op_exp_exp_to_exp(
+        &mut self,
+        operation: Token,
+        rhs1: Token,
+        rhs2: &mut Token,
+        target: &mut Token,
+    ) {
         let temp = target.symbol;
-        *target = rhs.clone();
-        target.symbol = temp;
+        if rhs2.token_type == TokenType::EMPTY {
+            *target = rhs1.clone();
+            target.symbol = temp;
+        } else {
+            if let Symbol::Terminal(op) = operation.symbol {
+                rhs2.op = op;
+            }
+            self.pass_exp_exp_to_exp(&rhs1, rhs2, target);
+        }
         if let Symbol::Terminal(op) = operation.symbol {
             target.op = op;
         }
@@ -2804,7 +3008,7 @@ impl Parser {
                 target.token_type = TokenType::CombinedExpr;
                 target.temp_reg_index = temp_index;
 
-                println!("    lw $t8, {}($fp)", -4 * rhs.mem_addr);
+                println!("    lw $t8, {}($sp)", -4 * rhs.mem_addr);
                 println!("    subu {}, $0, $t8", TEMPER_REGISTER_TABLE[temp_index]);
             }
 
@@ -2845,7 +3049,7 @@ impl Parser {
                 target.token_type = TokenType::CombinedExpr;
                 // target.int_val = !rhs.int_val;
                 target.temp_reg_index = temp_index;
-                println!("    lw $t8, {}($fp)", -4 * rhs.mem_addr);
+                println!("    lw $t8, {}($sp)", -4 * rhs.mem_addr);
                 println!("    sltiu $t8, $t8,1");
                 println!(
                     "    andi {}, $t8, 0x00ff",
@@ -2890,14 +3094,16 @@ impl Parser {
     }
 
     fn pass_id_to_exp(&mut self, id: &Token, target: &mut Token) {
-        target.id = id.id.clone();
-        target.token_type = TokenType::IDExpr;
+        // target.id = id.id.clone();
+        // target.token_type = TokenType::IDExpr;
         let index = self.look_up_id(&id.id);
         if index.is_none() {
             panic!("undefined variable!!!");
         }
         let index = index.unwrap();
-        target.mem_addr = self.token_table[index].mem_addr;
+        let temp = target.symbol;
+        *target = self.token_table[index].clone();
+        target.symbol = temp;
     }
 
     fn pass_integer_to_exp(&mut self, int_val: i32, target: &mut Token) {
