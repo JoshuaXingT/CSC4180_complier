@@ -477,14 +477,14 @@ impl Parser {
                             s2 += &n2;
                             FLAG_PTR += 1;
 
-                            println!("  b {}", s2);
+                            println!("    b {}", s2);
                             println!("{}:", s1.unwrap());
 
                             FLAG_STACK.push(s2);
                             FLAG_STACK.push("out".to_string());
                         }
                     } else {
-                        println!("not else but: {}", tokens[ptr + 1]);
+                        // println!("not else but: {}", tokens[ptr + 1]);
                         unsafe {
                             // pop here
                             println!("not else~~~");
@@ -554,7 +554,8 @@ impl Parser {
                 s2 += &n2;
                 FLAG_PTR += 1;
 
-                println!("WHILE start {}:", &s1);
+                // println!("WHILE start {}:", &s1);
+                println!("{}:", &s1);
                 FLAG_STACK.push(s2.clone());
                 FLAG_STACK.push(s1.clone());
                 FLAG_STACK.push(s2.clone());
@@ -567,7 +568,8 @@ impl Parser {
                 s1 += &n1;
                 FLAG_PTR += 1;
 
-                println!("DO start {}:", &s1);
+                // println!("DO start {}:", &s1);
+                println!("{}:", &s1);
                 FLAG_STACK.push(s1.clone());
             },
             _ => return,
@@ -692,9 +694,9 @@ impl Parser {
         if exp.token_type == TokenType::IntExpr {
             println!("    addi $a0, $zero, {}", exp.int_val);
         } else if exp.token_type == TokenType::IDExpr {
-            // println!("    lw $t8, {}($sp)", -4 * exp.mem_addr);
+            println!("    lw $t8, {}($sp)", -4 * exp.mem_addr);
             // println!("    add $a0, $t8, $zero");
-            println!("    move $a0, {}($sp)", -4 * exp.mem_addr);
+            println!("    move $a0, $t8");
         } else {
             // println!(
             //     "     add $a0, {}, $zero",
@@ -773,7 +775,7 @@ impl Parser {
                 println!("    sw $t8, {}($sp)", -4 * self.token_table[index].mem_addr);
             }
             TokenType::IDExpr => {
-                println!("    move $t8, {}($sp)", -4 * exp.mem_addr);
+                println!("    lw $t8, {}($sp)", -4 * exp.mem_addr);
                 println!("    sw $t8, {}($sp)", -4 * self.token_table[index].mem_addr);
             }
             TokenType::CombinedExpr => {
@@ -899,7 +901,7 @@ impl Parser {
                 }
                 TokenType::CombinedExpr => {
                     println!(
-                        "     bne $zero, {}, {}",
+                        "    bne $zero, {}, {}",
                         TEMPER_REGISTER_TABLE[condition.temp_reg_index],
                         s1.unwrap()
                     );
@@ -1135,7 +1137,7 @@ impl Parser {
                         } else if rhs1.int_val > 0 {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                             println!("    xori $t8, $t8, {}", rhs1.int_val);
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1143,7 +1145,7 @@ impl Parser {
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                             println!("    addiu $t8, $t8, {}", -rhs1.int_val);
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1186,7 +1188,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs1.int_val + 1);
+                            println!("    slti $t8, $t8, {}", rhs1.int_val + 1);
                             println!("    xori $t8, $t8, 0x1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
@@ -1204,7 +1206,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs1.int_val);
+                            println!("    slti $t8, $t8, {}", rhs1.int_val);
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1222,7 +1224,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs1.int_val);
+                            println!("    slti $t8, $t8, {}", rhs1.int_val);
                             println!("    xori $t8, $t8, 0x1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
@@ -1232,7 +1234,7 @@ impl Parser {
                     }
                     TerminalSymbol::GTEQ => {
                         println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
-                        println!("    slt $t8, $t8, {}", rhs1.int_val + 1);
+                        println!("    slti $t8, $t8, {}", rhs1.int_val + 1);
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -1363,7 +1365,7 @@ impl Parser {
                                 "    xori $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index], rhs1.int_val
                             );
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1373,7 +1375,7 @@ impl Parser {
                                 "    addiu $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index], -rhs1.int_val
                             );
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1424,7 +1426,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index],
                                 rhs1.int_val + 1
                             );
@@ -1447,7 +1449,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index], rhs1.int_val
                             );
                             println!(
@@ -1469,7 +1471,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index], rhs1.int_val
                             );
                             println!("    xori $t8, $t8, 0x1");
@@ -1481,7 +1483,7 @@ impl Parser {
                     }
                     TerminalSymbol::GTEQ => {
                         println!(
-                            "    slt $t8, {}, {}",
+                            "    slti $t8, {}, {}",
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index],
                             rhs1.int_val + 1
                         );
@@ -1617,7 +1619,7 @@ impl Parser {
                         } else if rhs2.int_val > 0 {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                             println!("    xori $t8, $t8, {}", rhs2.int_val);
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1625,7 +1627,7 @@ impl Parser {
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                             println!("    addiu $t8, $t8, {}", -rhs2.int_val);
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1668,7 +1670,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs2.int_val);
+                            println!("    slti $t8, $t8, {}", rhs2.int_val);
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1685,7 +1687,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs2.int_val);
+                            println!("    slti $t8, $t8, {}", rhs2.int_val);
                             println!("    xori $t8, $t8, 0x1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
@@ -1704,7 +1706,7 @@ impl Parser {
                             );
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
-                            println!("    slt $t8, $t8, {}", rhs2.int_val);
+                            println!("    slti $t8, $t8, {}", rhs2.int_val);
                             println!("    xori $t8, $t8, 0x1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
@@ -1714,7 +1716,7 @@ impl Parser {
                     }
                     TerminalSymbol::LTEQ => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
-                        println!("    slt $t8, $t8, {}", rhs2.int_val + 1);
+                        println!("    slti $t8, $t8, {}", rhs2.int_val + 1);
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -1866,7 +1868,7 @@ impl Parser {
                                 "    xori $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index], rhs2.int_val
                             );
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1876,7 +1878,7 @@ impl Parser {
                                 "    addiu $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index], -rhs2.int_val
                             );
-                            println!("    sltu $t8, $t8, 1");
+                            println!("    sltiu $t8, $t8, 1");
                             println!(
                                 "    andi {}, $t8, 0x00ff",
                                 TEMPER_REGISTER_TABLE[temp_index]
@@ -1927,7 +1929,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index], rhs2.int_val
                             );
                             println!(
@@ -1948,7 +1950,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index], rhs2.int_val
                             );
                             println!("    xori $t8, $t8, 0x1");
@@ -1971,7 +1973,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    slt $t8, {}, {}",
+                                "    slti $t8, {}, {}",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index], rhs2.int_val
                             );
                             println!("    xori $t8, $t8, 0x1");
@@ -1983,7 +1985,7 @@ impl Parser {
                     }
                     TerminalSymbol::LTEQ => {
                         println!(
-                            "    slt $t8, {}, {}",
+                            "    slti $t8, {}, {}",
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                             rhs2.int_val + 1
                         );
@@ -2145,7 +2147,7 @@ impl Parser {
                             "    xor $t8, $t8, {}",
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
-                        println!("    sltu $t8, $t8, 1");
+                        println!("    sltiu $t8, $t8, 1");
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -2329,7 +2331,7 @@ impl Parser {
                             "    xor $t8, {}, $t8",
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
-                        println!("    sltu $t8, $t8, 1");
+                        println!("    sltiu $t8, $t8, 1");
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -2493,7 +2495,7 @@ impl Parser {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!("    lw $t9, {}($sp)", -4 * rhs2.mem_addr);
                         println!("    xor $t8, $t8, $t9");
-                        println!("    sltu $t8, $t8, 1");
+                        println!("    sltiu $t8, $t8, 1");
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -2653,7 +2655,7 @@ impl Parser {
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
-                        println!("    sltu $t8, $t8, 1");
+                        println!("    sltiu $t8, $t8, 1");
                         println!(
                             "    andi {}, $t8, 0x00ff",
                             TEMPER_REGISTER_TABLE[temp_index]
@@ -2798,29 +2800,36 @@ impl Parser {
             // minus ID -> 提取出ID中的值并返回 -usize
             TokenType::IDExpr => {
                 // target.int_val = -rhs.int_val; // why usize instead of i32?
+                let temp_index = self.look_up_unused_temp_reg().unwrap();
                 target.token_type = TokenType::CombinedExpr;
+                target.temp_reg_index = temp_index;
 
-                println!("    lw $t8,{}($fp)", -4 * rhs.mem_addr);
-                println!("    subu $t8,$0,$t8");
-                println!("    sw $t8,{}($fp)", -4 * rhs.mem_addr);
+                println!("    lw $t8, {}($fp)", -4 * rhs.mem_addr);
+                println!("    subu {}, $0, $t8", TEMPER_REGISTER_TABLE[temp_index]);
             }
 
             // minus int -> return -usize
             // 这里是否输出mips代码， 取决于编译器的偏好
             // 对于一些编译器来说，if(-1)的情况应该在编译器里直接判断，不需要再额外输出mips代码
             TokenType::IntExpr => {
-                target.int_val = rhs.int_val;
-                target.token_type = TokenType::IDExpr;
+                target.int_val = -rhs.int_val;
+                target.token_type = TokenType::IntExpr;
             }
 
             //TODO:
             TokenType::CombinedExpr => {
                 // target.int_val = -rhs.int_val; // why usize instead of i32?
+                let temp_index = self.look_up_unused_temp_reg().unwrap();
                 target.token_type = TokenType::CombinedExpr;
+                target.temp_reg_index = temp_index;
 
-                println!("    lw $t8,{}", TEMPER_REGISTER_TABLE[rhs.temp_reg_index]);
-                println!("    subu $t8,$0,$t8");
-                println!("    sw $t8,{}", TEMPER_REGISTER_TABLE[rhs.temp_reg_index]);
+                println!(
+                    "    subu {}, $zero, {}",
+                    TEMPER_REGISTER_TABLE[temp_index], TEMPER_REGISTER_TABLE[rhs.temp_reg_index]
+                );
+                unsafe {
+                    TEMPER_REGISTER_CHECK[rhs.temp_reg_index] = false;
+                }
             }
             _ => {}
         }
@@ -2832,13 +2841,16 @@ impl Parser {
             //TODO
             // minus ID -> 提取出ID中的值并返回 !usize
             TokenType::IDExpr => {
+                let temp_index = self.look_up_unused_temp_reg().unwrap();
                 target.token_type = TokenType::CombinedExpr;
                 // target.int_val = !rhs.int_val;
-
-                println!("    lw $t8,{}($fp)", -4 * rhs.mem_addr);
-                println!("    sltu $t8,$t8,1");
-                println!("    andi $t8,$t8,0x00ff");
-                println!("    sw $t8,{}($fp)", -4 * rhs.mem_addr);
+                target.temp_reg_index = temp_index;
+                println!("    lw $t8, {}($fp)", -4 * rhs.mem_addr);
+                println!("    sltiu $t8, $t8,1");
+                println!(
+                    "    andi {}, $t8, 0x00ff",
+                    TEMPER_REGISTER_TABLE[temp_index]
+                );
             }
 
             // minus int -> return -usize
@@ -2851,18 +2863,20 @@ impl Parser {
             TokenType::CombinedExpr => {
                 // -combine should change the value in temp register
                 // target.int_val = !rhs.int_val;
+                let temp_index = self.look_up_unused_temp_reg().unwrap();
                 target.token_type = TokenType::CombinedExpr;
-
+                target.temp_reg_index = temp_index;
                 println!(
-                    "    lw $t8,{}($fp)",
+                    "    sltiu $t8, {}, 1",
                     TEMPER_REGISTER_TABLE[rhs.temp_reg_index]
                 );
-                println!("    sltu $t8,$t8,1");
-                println!("    andi $t8,$t8,0x00ff");
                 println!(
-                    "    sw $t8,{}($fp)",
-                    TEMPER_REGISTER_TABLE[rhs.temp_reg_index]
+                    "    andi {}, $t8, 0x00ff",
+                    TEMPER_REGISTER_TABLE[temp_index]
                 );
+                unsafe {
+                    TEMPER_REGISTER_CHECK[rhs.temp_reg_index] = false;
+                }
             }
             _ => {}
         }
