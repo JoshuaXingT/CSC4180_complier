@@ -1,0 +1,3 @@
+find the first missing positive int
+
+output:1

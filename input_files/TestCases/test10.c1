@@ -1,0 +1,40 @@
+int i=-1;
+    int nums[5];
+    int numsSize;
+    int a;
+    int ta;
+    numsSize = 5;
+    nums[0]=7;
+    nums[1]=8;
+    nums[2]=9;
+    nums[3]=11;
+    nums[4]=12;
+    do{
+        i = i+1;
+        if(nums[i]<0 || nums[i]>numsSize){
+            nums[i]=0;
+        }
+    }while(i<numsSize);
+    i=0;
+    while(i<numsSize){
+        if(0!=nums[i] && nums[i]!=i+1){
+            a=nums[i];      
+            nums[i]=0;          
+            while(nums[a-1]!=a){    
+                if(0==nums[a-1]){   
+                    nums[a-1]=a;
+                }else{              
+                    ta=nums[a-1];   
+                    nums[a-1]=a;    
+                    a=ta;            
+                }
+            }
+        }
+        i = i + 1;
+    }
+    i=0;
+    while(i<numsSize && 0!=nums[i]){
+        i = i + 1;
+    }
+    printf(i+1);
+    return;   

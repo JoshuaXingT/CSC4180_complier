@@ -1,0 +1,9 @@
+pow(x, n)
+input:2, 10
+output:1024
+
+input:3, -3
+output:0
+
+input:4, 4
+output:256

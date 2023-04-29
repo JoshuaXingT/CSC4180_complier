@@ -1,0 +1,18 @@
+int x;
+    int r = 0;
+    int num = 0;
+    scanf(x);
+    while(x)
+    {
+        r = x - (x / 10) * 10;
+
+        num = num*10 + r;
+        x = x / 10;
+    }
+    if(num>1000||num<-1000)
+    {
+        printf(0);
+        return;
+    }
+    printf(num);
+    return;

@@ -1,0 +1,32 @@
+int numsSize,slow = 1, fast = 1;
+    int nums[10];
+    numsSize = 10;
+    nums[0] = 0;
+    nums[1] = 0;
+    nums[2] = 1;
+    nums[3] = 1;
+    nums[4] = 1;
+    nums[5] = 2;
+    nums[6] = 2;
+    nums[7] = 3;
+    nums[8] = 3;
+    nums[9] = 4;
+    if(0 == numsSize){
+        printf(0);
+        return;
+    }
+    while(fast < numsSize){
+        if(nums[fast] == nums[slow - 1]){
+            fast = fast + 1;
+        }else{
+            nums[slow] = nums[fast];
+            slow = slow + 1;
+            fast = fast + 1;
+        }
+    }
+    printf(slow);
+    printf(nums[0]);
+    printf(nums[1]);
+    printf(nums[2]);
+    printf(nums[3]);
+    printf(nums[4]);
