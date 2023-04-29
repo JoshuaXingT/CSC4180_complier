@@ -1,3 +1,15 @@
+//This code(parser,rs) is used to parse the input tokens from scanner.
+//The main implementation locates at following functions:
+// parse part:
+//      goto(): used in parse() function
+//      clousre(): used in parse() function
+//      items(): used in parse() function
+//      parse(): main parsing function
+//
+// code generation part:
+//      for the code generation part, should be cooperate with the ./input_files/grammar.md
+//      parse(): receive the tokens input and do the shift and ruduce implementation
+
 use crate::symbol::NonTerminalSymbolTable;
 use crate::symbol::TerminalSymbolTable;
 use crate::Action;
@@ -158,9 +170,7 @@ pub fn items(
         }
 
         return_lr1state.extend(temp.into_iter().collect::<BTreeSet<LR1State>>());
-
         let new_len = return_lr1state.len();
-        // println!("new:{}  old:{}", new_len, last_len);
 
         if new_len == last_len {
             break;
@@ -330,7 +340,6 @@ impl Parser {
 
     pub fn construct_parsing_table(&mut self, productions: &Vec<Production>) {
         let state_num = self.lr1_states.len();
-        // println!("{}", state_num);
         self.action_table = Vec::with_capacity(state_num);
         self.goto_table = Vec::with_capacity(state_num);
         for _ in 0..state_num {
@@ -411,7 +420,6 @@ impl Parser {
                 Self::handle_condition_flag(pre_symbol_token);
             }
 
-            // println!("{}: {:?}", state, symbol_token);
             let mut action = self.action_table[*state].get(&symbol_token);
             if action.is_none() {
                 symbol_token = Symbol::Terminal(TerminalSymbol::EMPTY);
@@ -453,13 +461,10 @@ impl Parser {
                 }
                 state_stack.push(*state_index);
                 ptr = ptr + 1;
-                // println!("shift to state {}", state_index);
             } else if let Action::Reduce(state_index) = action {
                 let grammar_line = state_index;
                 let production = &productions[*grammar_line];
                 let mut len = production.rhs.len();
-                // print!("state: {}\tnext type: {}\t\t", state, token);
-                // println!("reduce by grammer {}", production.to_string());
                 let mut rhs_token: Vec<Token> = Vec::with_capacity(10);
                 while len > 0 {
                     rhs_token.push(symbol_stack.pop().unwrap());
@@ -501,10 +506,8 @@ impl Parser {
                             FLAG_STACK.push("out".to_string());
                         }
                     } else {
-                        // println!("not else but: {}", tokens[ptr + 1]);
                         unsafe {
                             // pop here
-                            // println!("not else~~~");
                             let s1 = FLAG_STACK.pop();
                             if s1.is_none() {
                                 panic!("condition haven't push flag but require one");
@@ -556,7 +559,6 @@ impl Parser {
                     return;
                 }
 
-                // println!("handle once");
                 WHILE_FLAG = 1;
                 if !DO_FLAG.is_empty() {
                     INSIDE_DO_TEMP_FLAG.push(1);
@@ -572,7 +574,6 @@ impl Parser {
                 s2 += &n2;
                 FLAG_PTR += 1;
 
-                // println!("WHILE start {}:", &s1);
                 println!("{}:", &s1);
                 FLAG_STACK.push(s2.clone());
                 FLAG_STACK.push(s1.clone());
@@ -586,7 +587,6 @@ impl Parser {
                 s1 += &n1;
                 FLAG_PTR += 1;
 
-                // println!("DO start {}:", &s1);
                 println!("{}:", &s1);
                 FLAG_STACK.push(s1.clone());
             },
@@ -640,7 +640,6 @@ impl Parser {
 
                 match target.token_type {
                     TokenType::IntExpr => {
-                        // println!("hahahahaah");
                         println!("    li $t8, {}", target.int_val);
                         println!("    beq $zero, $t8, {}", s2.unwrap());
                     }
@@ -672,6 +671,10 @@ impl Parser {
         }
     }
 
+    /// handle
+    /// line: the reducing rule
+    /// lhs_pos:Vec<Token> => the left hand side of rules
+    /// rhs_pos:Token => the rules going to be reduced to
     fn handle(&mut self, line: usize, lhs_pos: &mut Token, rhs_pos: &mut Vec<Token>) {
         match line {
             // 9. declaration -> ID ASSIGN exp
@@ -706,23 +709,21 @@ impl Parser {
             35 => self.write_func(&rhs_pos[1]),
             //determine if flag
             // 36. exp -> exp_1 exp_00
-            36 => self.pass_exp1_to_exp(&rhs_pos[1], &rhs_pos[0], lhs_pos),
+            // 36 => self.pass_exp1_to_exp(&rhs_pos[1], &rhs_pos[0], lhs_pos),
 
             // generate_1: exp_i -> exp_j exp_ii
-            39 | 42 | 45 | 48 | 52 | 58 | 62 | 66 => {
+            36 | 39 | 42 | 45 | 48 | 52 | 58 | 62 | 66 => {
                 self.pass_exp_exp_to_exp(&rhs_pos[1], &rhs_pos[0], lhs_pos)
             }
 
             // generate_2: exp_ii -> OP exp_j exp_ii
             37 | 40 | 43 | 46 | 49 | 50 | 53 | 54 | 55 | 56 | 59 | 60 | 63 | 64 | 67 | 68 => {
-                // println!("{}", rhs_pos.len());
                 self.pass_op_exp_exp_to_exp(
                     rhs_pos[2].clone(),
                     rhs_pos[1].clone(),
                     &mut rhs_pos[0],
                     lhs_pos,
                 );
-                // println!("55555555555555555");
             }
 
             // generate_3: exp_ii -> EMPTY
@@ -771,17 +772,10 @@ impl Parser {
     fn read_func(&mut self, id: &mut Token) {
         println!("    addi $v0, $zero, 5");
         println!("    syscall");
-        // println!("add $t8, $v0, $zero");
         println!("    move $t8, $v0");
 
         let index = self.look_up_id(&id.id);
         if index.is_none() {
-            // unsafe {
-            //     id.mem_addr = MEMORY_PTR;
-            //     self.token_table.push(id.clone());
-            //     println!("    sw $t8, {}($sp)", -4 * MEMORY_PTR);
-            //     MEMORY_PTR += 1;
-            // }
             panic!("undefined variable!!!");
         } else {
             println!(
@@ -789,7 +783,6 @@ impl Parser {
                 -4 * self.token_table[index.unwrap()].mem_addr
             );
         }
-        // print \n
         println!("    addi $v0, $zero, 11");
         println!("    addi $a0, $zero, 10");
         println!("    syscall");
@@ -802,13 +795,8 @@ impl Parser {
             println!("    addi $a0, $zero, {}", exp.int_val);
         } else if exp.token_type == TokenType::IDExpr {
             println!("    lw $t8, {}($sp)", -4 * exp.mem_addr);
-            // println!("    add $a0, $t8, $zero");
             println!("    move $a0, $t8");
         } else {
-            // println!(
-            //     "     add $a0, {}, $zero",
-            //     TEMPER_REGISTER_TABLE[exp.temp_reg_index]
-            // );
             println!(
                 "    move $a0, {}",
                 TEMPER_REGISTER_TABLE[exp.temp_reg_index]
@@ -819,7 +807,6 @@ impl Parser {
         }
         println!("    syscall");
 
-        // print \n
         println!("    addi $v0, $zero, 11");
         println!("    addi $a0, $zero, 10");
         println!("    syscall");
@@ -918,7 +905,6 @@ impl Parser {
                     self.token_table.push(id.clone());
                     MEMORY_PTR += index.int_val;
                 }
-                // println!("id: {} {:?}", id.len, self.token_table);
             }
             // mem = -4(mem_addr + index.value)
         } else {
@@ -1034,9 +1020,6 @@ impl Parser {
 
             println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
             println!("    sll $t8, $t8, 2");
-            // ----------------test-----------------------
-            // println!("    addiu $t9, $sp, 8");
-            // println!("    addu $t8, $t9, $t8");
             println!("    subu $t8, $sp, $t8");
             println!(
                 "    lw $t8, {}($t8)",
@@ -1057,9 +1040,6 @@ impl Parser {
                 "    sll $t8, {}, 2",
                 TEMPER_REGISTER_TABLE[index.temp_reg_index]
             );
-            //----------------------test---------------------
-            // println!("    addiu $t9, $sp, 8");
-            // println!("    addu $t8, $t9, $t8");
             println!("    subu $t8, $sp, $t8");
             println!(
                 "    lw $t8, {}($t8)",
@@ -1077,10 +1057,8 @@ impl Parser {
             panic!("undefined variable!!!");
         }
         let id_index = id_index.unwrap();
-        // println!("index: {} {}", id_index, self.token_table[id_index].len);
         if index.token_type == TokenType::IntExpr {
             if index.int_val >= (self.token_table[id_index].len as i32) {
-                // println!("id len:{}, index val: {}", id.len, index.int_val);
                 panic!("index out of range");
             }
             match exp.token_type {
@@ -1102,7 +1080,6 @@ impl Parser {
                     unsafe {
                         TEMPER_REGISTER_CHECK[exp.temp_reg_index] = false;
                     }
-                    // println!("    lw $t8, {}", TEMPER_REGISTER_TABLE[exp.temp_reg_index]);
                     println!(
                         "    sw {}, {}($sp)",
                         TEMPER_REGISTER_TABLE[exp.temp_reg_index],
@@ -1116,9 +1093,6 @@ impl Parser {
                 TokenType::IntExpr => {
                     println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
                     println!("    sll $t8, $t8, 2");
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    li $t9, {}", exp.int_val);
@@ -1130,9 +1104,6 @@ impl Parser {
                 TokenType::IDExpr => {
                     println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
                     println!("    sll $t8, $t8, 2");
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    lw $t9, {}($sp)", -4 * exp.mem_addr);
@@ -1147,9 +1118,6 @@ impl Parser {
                     }
                     println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
                     println!("    sll $t8, $t8, 2");
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    lw $t9, {}($sp)", -4 * exp.mem_addr);
@@ -1171,9 +1139,6 @@ impl Parser {
                         "    sll $t8, {}, 2",
                         TEMPER_REGISTER_TABLE[index.temp_reg_index]
                     );
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    li $t9, {}", exp.int_val);
@@ -1187,9 +1152,6 @@ impl Parser {
                         "    sll $t8, {}, 2",
                         TEMPER_REGISTER_TABLE[index.temp_reg_index]
                     );
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    lw $t9, {}($sp)", -4 * exp.mem_addr);
@@ -1206,9 +1168,6 @@ impl Parser {
                         "    sll $t8, {}, 2",
                         TEMPER_REGISTER_TABLE[index.temp_reg_index]
                     );
-                    // ----------------test-----------------------
-                    // println!("    addiu $t9, $sp, 8");
-                    // println!("    addu $t8, $t9, $t8");
                     println!("    subu $t8, $sp, $t8");
 
                     println!("    lw $t9, {}($sp)", -4 * exp.mem_addr);
@@ -1245,9 +1204,7 @@ impl Parser {
     fn else_condition(&mut self) {
         unsafe {
             let peek = &FLAG_STACK[FLAG_STACK.len() - 1];
-            // println!("print value: {}", peek);
             if peek == "out" {
-                // println!("else correct");
                 FLAG_STACK.pop();
                 let else_label = FLAG_STACK.pop();
                 if else_label.is_none() {
@@ -1356,85 +1313,9 @@ impl Parser {
     }
 
     // handle conditions, push flag stack
-    fn pass_exp1_to_exp(&mut self, rhs1: &Token, rhs2: &Token, target: &mut Token) {
-        self.pass_exp_exp_to_exp(rhs1, rhs2, target);
-
-        // unsafe {
-        //     if IF_FLAG == 1 {
-        //         // should output condition and push flag stack
-        //         // output condition
-        //         let mut s1 = "L".to_string();
-        //         let n1 = FLAG_PTR.to_string();
-        //         s1 += &n1;
-        //         FLAG_PTR += 1;
-
-        //         match target.token_type {
-        //             TokenType::IntExpr => {
-        //                 println!("    li $t8, {}", target.int_val);
-        //                 println!("    beq $zero, $t8, {}", &s1);
-        //                 FLAG_STACK.push(s1.clone());
-        //                 // FLAG_STACK.push(s1);
-        //             }
-        //             TokenType::IDExpr => {
-        //                 let index = self.look_up_id(&target.id);
-        //                 println!(
-        //                     "    lw $t8, {}($sp)",
-        //                     -4 * self.token_table[index.unwrap()].mem_addr
-        //                 );
-        //                 println!("    beq $zero, $t8, {}", &s1);
-        //                 FLAG_STACK.push(s1.clone());
-        //             }
-        //             TokenType::CombinedExpr => {
-        //                 TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
-        //                 println!(
-        //                     "    beq $zero, {}, {}",
-        //                     TEMPER_REGISTER_TABLE[target.temp_reg_index], &s1
-        //                 );
-        //                 FLAG_STACK.push(s1.clone());
-        //             }
-        //             _ => {}
-        //         }
-
-        //         IF_FLAG = 0;
-        //     } else if WHILE_FLAG == 1 {
-        //         let s2 = FLAG_STACK.pop();
-        //         if s2.is_none() {
-        //             panic!("while condition missing flag but require one");
-        //         }
-
-        //         match target.token_type {
-        //             TokenType::IntExpr => {
-        //                 // println!("hahahahaah");
-        //                 println!("    li $t8, {}", target.int_val);
-        //                 println!("    beq $zero, $t8, {}", s2.unwrap());
-        //             }
-
-        //             TokenType::IDExpr => {
-        //                 let index = self.look_up_id(&target.id);
-        //                 println!(
-        //                     "    lw $t8, {}($sp)",
-        //                     -4 * self.token_table[index.unwrap()].mem_addr
-        //                 );
-        //                 println!("    beq $zero, $t8, {}", s2.unwrap());
-        //             }
-
-        //             TokenType::CombinedExpr => {
-        //                 TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
-
-        //                 println!(
-        //                     "    beq $zero, {}, {}",
-        //                     TEMPER_REGISTER_TABLE[target.temp_reg_index],
-        //                     s2.unwrap()
-        //                 );
-        //             }
-        //             _ => {}
-        //         }
-
-        //         // jump to L2
-        //         WHILE_FLAG = 0;
-        //     }
-        // }
-    }
+    // fn pass_exp1_to_exp(&mut self, rhs1: &Token, rhs2: &Token, target: &mut Token) {
+    //     self.pass_exp_exp_to_exp(rhs1, rhs2, target);
+    // }
 
     // generate_1: exp_i -> exp_j exp_ii
     // the targe token type should be "CombinedExpr" with it's temp_register index assigned with content
@@ -1453,10 +1334,8 @@ impl Parser {
     fn pass_exp_exp_to_exp(&mut self, rhs1: &Token, rhs2: &Token, target: &mut Token) {
         let temp: Symbol = target.symbol;
         if rhs2.token_type == TokenType::EMPTY {
-            // println!("7777777777777777777");
             *target = rhs1.clone();
         } else if rhs1.token_type == TokenType::IntExpr && rhs2.token_type == TokenType::IntExpr {
-            // println!("44444444444444444");
             target.token_type = TokenType::IntExpr;
             match rhs2.op {
                 TerminalSymbol::OROR => {
@@ -1521,7 +1400,6 @@ impl Parser {
                 _ => {}
             }
         } else {
-            // println!("6666666666666666");
             let temp_index = self.look_up_unused_temp_reg().unwrap();
             target.temp_reg_index = temp_index;
             target.token_type = TokenType::CombinedExpr;
@@ -1722,7 +1600,6 @@ impl Parser {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                             println!("    li $t9, {}", rhs1.int_val);
                             println!("    mult $t9, $t8");
-                            // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                             println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                         }
                     }
@@ -1730,8 +1607,6 @@ impl Parser {
                         println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                         println!("    li $t9, {}", rhs1.int_val);
                         println!("    div {}, $t9, $t8", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
@@ -1987,7 +1862,6 @@ impl Parser {
                                 "    mult $t9, {}",
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                             );
-                            // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                             println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                         }
                     }
@@ -1998,18 +1872,14 @@ impl Parser {
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
             } else if rhs1.token_type == TokenType::IDExpr && rhs2.token_type == TokenType::IntExpr
             {
                 //a + 1
-                // println!("222222222222222222222");
                 match rhs2.op {
                     TerminalSymbol::OROR => {
-                        // println!("1111111111111: {}", rhs2.int_val);
                         if rhs2.int_val != 0 {
                             println!("    li {}, 1", TEMPER_REGISTER_TABLE[temp_index]);
                         } else {
@@ -2224,7 +2094,6 @@ impl Parser {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                             println!("    li $t9, {}", rhs2.int_val);
                             println!("    mult $t8, $t9");
-                            // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                             println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                         }
                     }
@@ -2232,8 +2101,6 @@ impl Parser {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!("    li $t9, {}", rhs2.int_val);
                         println!("    div {}, $t8, $t9", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
@@ -2504,7 +2371,6 @@ impl Parser {
                                 "    mult {}, $t9",
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                             );
-                            // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                             println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                         }
                     }
@@ -2515,8 +2381,6 @@ impl Parser {
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
@@ -2685,7 +2549,6 @@ impl Parser {
                             "    mult $t8, {}",
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                         println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     TerminalSymbol::DIV_OP => {
@@ -2695,8 +2558,6 @@ impl Parser {
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
@@ -2864,7 +2725,6 @@ impl Parser {
                             "    mult {}, $t8",
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
                         println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     TerminalSymbol::DIV_OP => {
@@ -2874,8 +2734,6 @@ impl Parser {
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
-                        // println!("    mfhi {}", TEMPER_REGISTER_TABLE[temp_index]);
-                        // println!("    mflo {}", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     _ => {}
                 }
