@@ -1021,6 +1021,7 @@ impl Parser {
             println!("    lw $t8, {}($sp)", -4 * index.mem_addr);
             println!("    sll $t8, $t8, 2");
             println!("    subu $t8, $sp, $t8");
+
             println!(
                 "    lw $t8, {}($t8)",
                 -4 * self.token_table[id_index].mem_addr
@@ -1041,6 +1042,7 @@ impl Parser {
                 TEMPER_REGISTER_TABLE[index.temp_reg_index]
             );
             println!("    subu $t8, $sp, $t8");
+
             println!(
                 "    lw $t8, {}($t8)",
                 -4 * self.token_table[id_index].mem_addr
@@ -1153,7 +1155,6 @@ impl Parser {
                         TEMPER_REGISTER_TABLE[index.temp_reg_index]
                     );
                     println!("    subu $t8, $sp, $t8");
-
                     println!("    lw $t9, {}($sp)", -4 * exp.mem_addr);
                     println!(
                         "    sw $t9, {}($t8)",
@@ -1582,7 +1583,7 @@ impl Parser {
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                             println!(
-                                "    addiu {}, $t8, {}",
+                                "    addi {}, $t8, {}",
                                 TEMPER_REGISTER_TABLE[temp_index], rhs1.int_val
                             );
                         }
@@ -1590,7 +1591,7 @@ impl Parser {
                     TerminalSymbol::MINUS => {
                         println!("    li $t9, {}", rhs1.int_val);
                         println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
-                        println!("    subu {}, $t9, $t8", TEMPER_REGISTER_TABLE[temp_index]);
+                        println!("    sub {}, $t9, $t8", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     TerminalSymbol::MUL_OP => {
                         if rhs1.int_val == 0 {
@@ -1837,7 +1838,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    addiu {}, {}, {}",
+                                "    addi {}, {}, {}",
                                 TEMPER_REGISTER_TABLE[temp_index],
                                 TEMPER_REGISTER_TABLE[rhs2.temp_reg_index],
                                 rhs1.int_val
@@ -1847,7 +1848,7 @@ impl Parser {
                     TerminalSymbol::MINUS => {
                         println!("    li $t9, {}", rhs1.int_val);
                         println!(
-                            "    subu {}, $t9, {}",
+                            "    sub {}, $t9, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
@@ -2074,7 +2075,7 @@ impl Parser {
                         } else {
                             println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                             println!(
-                                "    addiu {}, $t8, {}",
+                                "    addi {}, $t8, {}",
                                 TEMPER_REGISTER_TABLE[temp_index], rhs2.int_val
                             );
                         }
@@ -2082,7 +2083,7 @@ impl Parser {
                     TerminalSymbol::MINUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!(
-                            "    addiu {}, $t8, {}",
+                            "    addi {}, $t8, {}",
                             TEMPER_REGISTER_TABLE[temp_index], -rhs2.int_val
                         );
                     }
@@ -2346,7 +2347,7 @@ impl Parser {
                             );
                         } else {
                             println!(
-                                "    addiu {}, {}, {}",
+                                "    addi {}, {}, {}",
                                 TEMPER_REGISTER_TABLE[temp_index],
                                 TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                                 rhs2.int_val
@@ -2355,7 +2356,7 @@ impl Parser {
                     }
                     TerminalSymbol::MINUS => {
                         println!(
-                            "    addiu {}, {}, {}",
+                            "    addi {}, {}, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                             -rhs2.int_val
@@ -2529,7 +2530,7 @@ impl Parser {
                     TerminalSymbol::PLUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!(
-                            "    addu {}, $t8, {}",
+                            "    add {}, $t8, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
@@ -2537,7 +2538,7 @@ impl Parser {
                     TerminalSymbol::MINUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!(
-                            "    subu {}, $t8, {}",
+                            "    sub {}, $t8, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
                         );
@@ -2705,7 +2706,7 @@ impl Parser {
                     TerminalSymbol::PLUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                         println!(
-                            "    addu {}, {}, $t8",
+                            "    add {}, {}, $t8",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
@@ -2713,7 +2714,7 @@ impl Parser {
                     TerminalSymbol::MINUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs2.mem_addr);
                         println!(
-                            "    subu {}, {}, $t8",
+                            "    sub {}, {}, $t8",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index]
                         );
@@ -2848,12 +2849,12 @@ impl Parser {
                     TerminalSymbol::PLUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!("    lw $t9, {}($sp)", -4 * rhs2.mem_addr);
-                        println!("    addu {}, $t8, $t9", TEMPER_REGISTER_TABLE[temp_index]);
+                        println!("    add {}, $t8, $t9", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     TerminalSymbol::MINUS => {
                         println!("    lw $t8, {}($sp)", -4 * rhs1.mem_addr);
                         println!("    lw $t9, {}($sp)", -4 * rhs2.mem_addr);
-                        println!("    subu {}, $t8, $t9", TEMPER_REGISTER_TABLE[temp_index]);
+                        println!("    sub {}, $t8, $t9", TEMPER_REGISTER_TABLE[temp_index]);
                     }
                     TerminalSymbol::MUL_OP => {
                         // Note: only support 32 bit result (or 64 bit?)
@@ -3021,7 +3022,7 @@ impl Parser {
                     }
                     TerminalSymbol::PLUS => {
                         println!(
-                            "    addu {}, {}, {}",
+                            "    add {}, {}, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
@@ -3029,7 +3030,7 @@ impl Parser {
                     }
                     TerminalSymbol::MINUS => {
                         println!(
-                            "    subu {}, {}, {}",
+                            "    sub {}, {}, {}",
                             TEMPER_REGISTER_TABLE[temp_index],
                             TEMPER_REGISTER_TABLE[rhs1.temp_reg_index],
                             TEMPER_REGISTER_TABLE[rhs2.temp_reg_index]
@@ -3075,18 +3076,16 @@ impl Parser {
         if rhs2.token_type == TokenType::EMPTY {
             *target = rhs1.clone();
             target.symbol = temp;
-            // println!("333333333333333");
         } else {
-            if let Symbol::Terminal(op) = operation.symbol {
-                rhs2.op = op;
-            }
+            // if let Symbol::Terminal(op) = operation.symbol {
+            //     rhs2.op = op;
+            // }
             // println!("222222222222: {:?}", rhs2.op);
             self.pass_exp_exp_to_exp(&rhs1, rhs2, target);
         }
         if let Symbol::Terminal(op) = operation.symbol {
             target.op = op;
         }
-        // println!("8888888888888: {:?}", target.token_type);
     }
 
     fn pass_minus_exp_to_exp(&mut self, rhs: &Token, target: &mut Token) {

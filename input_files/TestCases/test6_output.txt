@@ -1,0 +1,2 @@
+find twp ascend arraies' mid number
+output: 2
