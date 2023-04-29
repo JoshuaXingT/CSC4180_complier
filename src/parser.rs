@@ -408,7 +408,7 @@ impl Parser {
                 let pre_token = tokens[ptr - 1];
                 let pre_index = TERMINAL_TABLE.iter().position(|&x| x == pre_token).unwrap();
                 let pre_symbol_token = Symbol::Terminal(TerminalSymbol::get(pre_index));
-                Self::handle_condition(pre_symbol_token);
+                Self::handle_condition_flag(pre_symbol_token);
             }
 
             // println!("{}: {:?}", state, symbol_token);
@@ -423,9 +423,10 @@ impl Parser {
             }
             let action = action.unwrap();
             if let Action::Shift(state_index) = action {
-                // print!("state: {}\tnext type: {}\t\t", state, token);
-                // symbol_stack.push(symbol_token);
-                // handle if/else/while condition
+                if symbol_token == Symbol::Terminal(TerminalSymbol::LBRACE) {
+                    let condition_exp = &symbol_stack[symbol_stack.len() - 2];
+                    self.handle_condition_logic(condition_exp);
+                }
 
                 if symbol_token == Symbol::Terminal(TerminalSymbol::INT_NUM) {
                     symbol_stack.push(Token {
@@ -537,7 +538,7 @@ impl Parser {
         Some(())
     }
 
-    fn handle_condition(token: Symbol) {
+    fn handle_condition_flag(token: Symbol) {
         match token {
             Symbol::Terminal(TerminalSymbol::IF) => unsafe {
                 IF_FLAG = 1;
@@ -590,6 +591,84 @@ impl Parser {
                 FLAG_STACK.push(s1.clone());
             },
             _ => return,
+        }
+    }
+
+    fn handle_condition_logic(&self, target: &Token) {
+        unsafe {
+            if IF_FLAG == 1 {
+                // should output condition and push flag stack
+                // output condition
+                let mut s1 = "L".to_string();
+                let n1 = FLAG_PTR.to_string();
+                s1 += &n1;
+                FLAG_PTR += 1;
+
+                match target.token_type {
+                    TokenType::IntExpr => {
+                        println!("    li $t8, {}", target.int_val);
+                        println!("    beq $zero, $t8, {}", &s1);
+                        FLAG_STACK.push(s1.clone());
+                        // FLAG_STACK.push(s1);
+                    }
+                    TokenType::IDExpr => {
+                        let index = self.look_up_id(&target.id);
+                        println!(
+                            "    lw $t8, {}($sp)",
+                            -4 * self.token_table[index.unwrap()].mem_addr
+                        );
+                        println!("    beq $zero, $t8, {}", &s1);
+                        FLAG_STACK.push(s1.clone());
+                    }
+                    TokenType::CombinedExpr => {
+                        TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
+                        println!(
+                            "    beq $zero, {}, {}",
+                            TEMPER_REGISTER_TABLE[target.temp_reg_index], &s1
+                        );
+                        FLAG_STACK.push(s1.clone());
+                    }
+                    _ => {}
+                }
+
+                IF_FLAG = 0;
+            } else if WHILE_FLAG == 1 {
+                let s2 = FLAG_STACK.pop();
+                if s2.is_none() {
+                    panic!("while condition missing flag but require one");
+                }
+
+                match target.token_type {
+                    TokenType::IntExpr => {
+                        // println!("hahahahaah");
+                        println!("    li $t8, {}", target.int_val);
+                        println!("    beq $zero, $t8, {}", s2.unwrap());
+                    }
+
+                    TokenType::IDExpr => {
+                        let index = self.look_up_id(&target.id);
+                        println!(
+                            "    lw $t8, {}($sp)",
+                            -4 * self.token_table[index.unwrap()].mem_addr
+                        );
+                        println!("    beq $zero, $t8, {}", s2.unwrap());
+                    }
+
+                    TokenType::CombinedExpr => {
+                        TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
+
+                        println!(
+                            "    beq $zero, {}, {}",
+                            TEMPER_REGISTER_TABLE[target.temp_reg_index],
+                            s2.unwrap()
+                        );
+                    }
+                    _ => {}
+                }
+
+                // jump to L2
+                WHILE_FLAG = 0;
+            }
         }
     }
 
@@ -1280,81 +1359,81 @@ impl Parser {
     fn pass_exp1_to_exp(&mut self, rhs1: &Token, rhs2: &Token, target: &mut Token) {
         self.pass_exp_exp_to_exp(rhs1, rhs2, target);
 
-        unsafe {
-            if IF_FLAG == 1 {
-                // should output condition and push flag stack
-                // output condition
-                let mut s1 = "L".to_string();
-                let n1 = FLAG_PTR.to_string();
-                s1 += &n1;
-                FLAG_PTR += 1;
+        // unsafe {
+        //     if IF_FLAG == 1 {
+        //         // should output condition and push flag stack
+        //         // output condition
+        //         let mut s1 = "L".to_string();
+        //         let n1 = FLAG_PTR.to_string();
+        //         s1 += &n1;
+        //         FLAG_PTR += 1;
 
-                match target.token_type {
-                    TokenType::IntExpr => {
-                        println!("    li $t8, {}", target.int_val);
-                        println!("    beq $zero, $t8, {}", &s1);
-                        FLAG_STACK.push(s1.clone());
-                        // FLAG_STACK.push(s1);
-                    }
-                    TokenType::IDExpr => {
-                        let index = self.look_up_id(&target.id);
-                        println!(
-                            "    lw $t8, {}($sp)",
-                            -4 * self.token_table[index.unwrap()].mem_addr
-                        );
-                        println!("    beq $zero, $t8, {}", &s1);
-                        FLAG_STACK.push(s1.clone());
-                    }
-                    TokenType::CombinedExpr => {
-                        TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
-                        println!(
-                            "    beq $zero, {}, {}",
-                            TEMPER_REGISTER_TABLE[target.temp_reg_index], &s1
-                        );
-                        FLAG_STACK.push(s1.clone());
-                    }
-                    _ => {}
-                }
+        //         match target.token_type {
+        //             TokenType::IntExpr => {
+        //                 println!("    li $t8, {}", target.int_val);
+        //                 println!("    beq $zero, $t8, {}", &s1);
+        //                 FLAG_STACK.push(s1.clone());
+        //                 // FLAG_STACK.push(s1);
+        //             }
+        //             TokenType::IDExpr => {
+        //                 let index = self.look_up_id(&target.id);
+        //                 println!(
+        //                     "    lw $t8, {}($sp)",
+        //                     -4 * self.token_table[index.unwrap()].mem_addr
+        //                 );
+        //                 println!("    beq $zero, $t8, {}", &s1);
+        //                 FLAG_STACK.push(s1.clone());
+        //             }
+        //             TokenType::CombinedExpr => {
+        //                 TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
+        //                 println!(
+        //                     "    beq $zero, {}, {}",
+        //                     TEMPER_REGISTER_TABLE[target.temp_reg_index], &s1
+        //                 );
+        //                 FLAG_STACK.push(s1.clone());
+        //             }
+        //             _ => {}
+        //         }
 
-                IF_FLAG = 0;
-            } else if WHILE_FLAG == 1 {
-                let s2 = FLAG_STACK.pop();
-                if s2.is_none() {
-                    panic!("while condition missing flag but require one");
-                }
+        //         IF_FLAG = 0;
+        //     } else if WHILE_FLAG == 1 {
+        //         let s2 = FLAG_STACK.pop();
+        //         if s2.is_none() {
+        //             panic!("while condition missing flag but require one");
+        //         }
 
-                match target.token_type {
-                    TokenType::IntExpr => {
-                        // println!("hahahahaah");
-                        println!("    li $t8, {}", target.int_val);
-                        println!("    beq $zero, $t8, {}", s2.unwrap());
-                    }
+        //         match target.token_type {
+        //             TokenType::IntExpr => {
+        //                 // println!("hahahahaah");
+        //                 println!("    li $t8, {}", target.int_val);
+        //                 println!("    beq $zero, $t8, {}", s2.unwrap());
+        //             }
 
-                    TokenType::IDExpr => {
-                        let index = self.look_up_id(&target.id);
-                        println!(
-                            "    lw $t8, {}($sp)",
-                            -4 * self.token_table[index.unwrap()].mem_addr
-                        );
-                        println!("    beq $zero, $t8, {}", s2.unwrap());
-                    }
+        //             TokenType::IDExpr => {
+        //                 let index = self.look_up_id(&target.id);
+        //                 println!(
+        //                     "    lw $t8, {}($sp)",
+        //                     -4 * self.token_table[index.unwrap()].mem_addr
+        //                 );
+        //                 println!("    beq $zero, $t8, {}", s2.unwrap());
+        //             }
 
-                    TokenType::CombinedExpr => {
-                        TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
+        //             TokenType::CombinedExpr => {
+        //                 TEMPER_REGISTER_CHECK[target.temp_reg_index] = false;
 
-                        println!(
-                            "    beq $zero, {}, {}",
-                            TEMPER_REGISTER_TABLE[target.temp_reg_index],
-                            s2.unwrap()
-                        );
-                    }
-                    _ => {}
-                }
+        //                 println!(
+        //                     "    beq $zero, {}, {}",
+        //                     TEMPER_REGISTER_TABLE[target.temp_reg_index],
+        //                     s2.unwrap()
+        //                 );
+        //             }
+        //             _ => {}
+        //         }
 
-                // jump to L2
-                WHILE_FLAG = 0;
-            }
-        }
+        //         // jump to L2
+        //         WHILE_FLAG = 0;
+        //     }
+        // }
     }
 
     // generate_1: exp_i -> exp_j exp_ii

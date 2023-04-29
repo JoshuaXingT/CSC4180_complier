@@ -1,12 +1,268 @@
-DO start L1:
-WHILE start L2:
-  sw $t8, 0($sp)
-  addi $t8, $zero, 0
-  beq $zero, $t8, L3
-  b L2
+    li $t8, 2
+    sw $t8, -4($sp)
+    li $t8, 3
+    sw $t8, -8($sp)
+    li $t8, 5
+    sw $t8, -12($sp)
+    li $t8, 7
+    sw $t8, -16($sp)
+    li $t8, 11
+    sw $t8, -20($sp)
+    li $t8, 13
+    sw $t8, -24($sp)
+    li $t8, 17
+    sw $t8, -28($sp)
+    li $t8, 19
+    sw $t8, -32($sp)
+    li $t8, 23
+    sw $t8, -36($sp)
+    li $t8, 29
+    sw $t8, -40($sp)
+    li $t8, 31
+    sw $t8, -44($sp)
+    li $t8, 37
+    sw $t8, -48($sp)
+    addi $v0, $zero, 5
+    syscall
+    move $t8, $v0
+    sw $t8, 0($sp)
+    addi $v0, $zero, 11
+    addi $a0, $zero, 10
+    syscall
+    li $t8, 0
+    sw $t8, -52($sp)
+    li $t8, 0
+    sw $t8, -60($sp)
+    lw $t8, 0($sp)
+    addiu $t0, $t8, -1
+    sw $t0, -56($sp)
+    lw $t8, 0($sp)
+    slti $t8, $t8, 2
+    andi $t0, $t8, 0x00ff
+    lw $t8, 0($sp)
+    slti $t8, $t8, 3
+    xori $t8, $t8, 0x1
+    andi $t1, $t8, 0x00ff
+    lw $t8, 0($sp)
+    li $t9, 1
+    and $t2, $t8, $t9
+    sltiu $t8, $t2, 1
+    andi $t3, $t8, 0x00ff
+    beq $t1, $zero, LABELOP0
+    beq $t3, $zero, LABELOP0
+    li $t8, 1
+    b LABELOP1
+LABELOP0:
+    move $t8, $zero
+LABELOP1:
+    move $t2, $t8
+    bne $t0, $zero, LABELOP2
+    beq $t2, $zero, LABELOP3
+LABELOP2:
+    li $t8, 1
+    b LABELOP4
+LABELOP3:
+    move $t8, $zero
+LABELOP4:
+    move $t1, $t8
+    beq $zero, $t1, L1
+    addi $v0, $zero, 1
+    addi $a0, $zero, 0
+    syscall
+    addi $v0, $zero, 11
+    addi $a0, $zero, 10
+    syscall
+    b LABELEOF
+L1:
+L2:
+    lw $t8, -56($sp)
+    li $t9, 1
+    and $t0, $t8, $t9
+    sltiu $t8, $t0, 1
+    andi $t1, $t8, 0x00ff
+    beq $zero, $t1, L3
+    lw $t8, -56($sp)
+    sra $t0, $t8, 1
+    sw $t0, -56($sp)
+    lw $t8, -52($sp)
+    addiu $t0, $t8, 1
+    sw $t0, -52($sp)
+    b L2
 L3:
-DO start L4:
-  lw $t8, 0($sp)
-  bne $zero, $t8, L4
-  lw $t8, 0($sp)
-  bne $zero, $t8, L1
+L4:
+    lw $t8, -60($sp)
+    slti $t8, $t8, 12
+    andi $t0, $t8, 0x00ff
+    beq $zero, $t0, L5
+    lw $t8, -60($sp)
+    sll $t8, $t8, 2
+    subu $t8, $sp, $t8
+    lw $t8, -4($t8)
+    sw $t8, -80($sp)
+    lw $t8, 0($sp)
+    lw $t9, -80($sp)
+    xor $t8, $t8, $t9
+    sltiu $t8, $t8, 1
+    andi $t0, $t8, 0x00ff
+    beq $zero, $t0, L6
+    addi $v0, $zero, 1
+    addi $a0, $zero, 1
+    syscall
+    addi $v0, $zero, 11
+    addi $a0, $zero, 10
+    syscall
+    b LABELEOF
+L6:
+    li $t8, 1
+    sw $t8, -64($sp)
+    lw $t8, -60($sp)
+    sll $t8, $t8, 2
+    subu $t8, $sp, $t8
+    lw $t8, -4($t8)
+    sw $t8, -84($sp)
+    lw $t8, -60($sp)
+    sll $t8, $t8, 2
+    subu $t8, $sp, $t8
+    lw $t8, -4($t8)
+    sw $t8, -88($sp)
+    lw $t8, -88($sp)
+    lw $t9, 0($sp)
+    div $t0, $t8, $t9
+    lw $t8, 0($sp)
+    mult $t8, $t0
+    mflo $t1
+    lw $t8, -84($sp)
+    subu $t0, $t8, $t1
+    sw $t0, -72($sp)
+    lw $t8, -56($sp)
+    sw $t8, -76($sp)
+L7:
+    lw $t8, -76($sp)
+    beq $zero, $t8, L8
+    lw $t8, -76($sp)
+    li $t9, 1
+    and $t0, $t8, $t9
+    beq $zero, $t0, L9
+    lw $t8, -64($sp)
+    lw $t9, -72($sp)
+    mult $t8, $t9
+    mflo $t0
+    sw $t0, -64($sp)
+    lw $t8, -64($sp)
+    lw $t9, 0($sp)
+    div $t0, $t8, $t9
+    lw $t8, 0($sp)
+    mult $t8, $t0
+    mflo $t1
+    lw $t8, -64($sp)
+    subu $t0, $t8, $t1
+    sw $t0, -64($sp)
+L9:
+    lw $t8, -72($sp)
+    lw $t9, -72($sp)
+    mult $t8, $t9
+    mflo $t0
+    sw $t0, -72($sp)
+    lw $t8, -72($sp)
+    lw $t9, 0($sp)
+    div $t0, $t8, $t9
+    lw $t8, 0($sp)
+    mult $t8, $t0
+    mflo $t1
+    lw $t8, -72($sp)
+    subu $t0, $t8, $t1
+    sw $t0, -72($sp)
+    lw $t8, -76($sp)
+    sra $t0, $t8, 1
+    sw $t0, -76($sp)
+    b L7
+L8:
+    lw $t8, -64($sp)
+    xori $t8, $t8, 1
+    sltu $t8, $zero, $t8
+    andi $t0, $t8, 0x00ff
+    lw $t8, 0($sp)
+    addiu $t1, $t8, -1
+    lw $t8, -64($sp)
+    xor $t8, $t8, $t1
+    sltu $t8, $zero, $t8
+    andi $t2, $t8, 0x00ff
+    beq $t0, $zero, LABELOP5
+    beq $t2, $zero, LABELOP5
+    li $t8, 1
+    b LABELOP6
+LABELOP5:
+    move $t8, $zero
+LABELOP6:
+    move $t1, $t8
+    beq $zero, $t1, L10
+    li $t8, 1
+    sw $t8, -68($sp)
+L11:
+    lw $t8, -68($sp)
+    lw $t9, -52($sp)
+    slt $t8, $t8, $t9
+    andi $t0, $t8, 0x00ff
+    lw $t8, 0($sp)
+    addiu $t1, $t8, -1
+    lw $t8, -64($sp)
+    xor $t8, $t8, $t1
+    sltu $t8, $zero, $t8
+    andi $t2, $t8, 0x00ff
+    beq $t0, $zero, LABELOP7
+    beq $t2, $zero, LABELOP7
+    li $t8, 1
+    b LABELOP8
+LABELOP7:
+    move $t8, $zero
+LABELOP8:
+    move $t1, $t8
+    beq $zero, $t1, L12
+    lw $t8, -68($sp)
+    addiu $t0, $t8, 1
+    sw $t0, -68($sp)
+    lw $t8, -64($sp)
+    lw $t9, -64($sp)
+    mult $t8, $t9
+    mflo $t0
+    sw $t0, -64($sp)
+    lw $t8, -64($sp)
+    lw $t9, 0($sp)
+    div $t0, $t8, $t9
+    lw $t8, 0($sp)
+    mult $t8, $t0
+    mflo $t1
+    lw $t8, -64($sp)
+    subu $t0, $t8, $t1
+    sw $t0, -64($sp)
+    b L11
+L12:
+    lw $t8, 0($sp)
+    addiu $t0, $t8, -1
+    lw $t8, -64($sp)
+    xor $t8, $t8, $t0
+    sltu $t8, $zero, $t8
+    andi $t1, $t8, 0x00ff
+    beq $zero, $t1, L13
+    addi $v0, $zero, 1
+    addi $a0, $zero, 0
+    syscall
+    addi $v0, $zero, 11
+    addi $a0, $zero, 10
+    syscall
+    b LABELEOF
+L13:
+L10:
+    lw $t8, -60($sp)
+    addiu $t0, $t8, 1
+    sw $t0, -60($sp)
+    b L4
+L5:
+    addi $v0, $zero, 1
+    addi $a0, $zero, 1
+    syscall
+    addi $v0, $zero, 11
+    addi $a0, $zero, 10
+    syscall
+    b LABELEOF
+LABELEOF:
